@@ -28,6 +28,7 @@ It is the same stack as [Bifrost](https://github.com/dbohry/bifrost), and the ac
 - The refresher wakes once a minute, takes the feeds that are due, and fetches four at a time but never two from the same host. Each feed is due every 30 minutes.
 - After a failure the wait doubles each time, up to 12 hours, and success resets it. The last error is kept on the feed and shown in the interface.
 - A response over 5 MB, or one that takes over 20 seconds, is a failure.
+- With `HUGINN_BLOCK_PRIVATE_NETWORKS=true` the fetcher refuses private, loopback, link-local and carrier-grade-NAT addresses. The check runs on the address actually dialled, after the name is resolved, so redirects and rebinding names are covered.
 - An article is identified by the feed's own id, else its link, else a hash of its title and date. Fetching again updates an edited article but never changes whether it was read. An article with no date keeps the time it was first seen.
 - Each feed keeps its newest 1000 articles.
 
@@ -48,4 +49,4 @@ Three panes on a wide screen (feeds, articles, the reader). Below 900 px only on
 
 ## Not in the first version
 
-Search, folders and tags, starring, keyboard shortcuts, full-text extraction for feeds that only publish a summary, a sync API for mobile apps, image proxying (which would stop sites seeing who reads their pictures), and a setting to block fetching addresses on private networks.
+Search, folders and tags, starring, keyboard shortcuts, full-text extraction for feeds that only publish a summary, a sync API for mobile apps, and image proxying (which would stop sites seeing who reads their pictures).

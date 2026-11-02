@@ -56,12 +56,13 @@ Everything Huginn stores lives in the `/data` volume. To back it up, copy that v
 
 ### Settings
 
-Both are optional.
+All are optional.
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `HUGINN_ADDR` | `:8080` | Address the server listens on |
 | `HUGINN_DATA_DIR` | `/data` | Directory that holds the database |
+| `HUGINN_BLOCK_PRIVATE_NETWORKS` | `false` | Set to `true` to refuse feeds on private networks (this machine, your home or office network, link-local and similar) |
 
 ### Locked out?
 
@@ -75,7 +76,7 @@ It prints a temporary password and signs that user out everywhere. They choose a
 
 ### Good to know
 
-- Huginn fetches the addresses you give it, including addresses on your own network. Give accounts only to people you trust.
+- By default Huginn fetches the addresses you give it, including addresses on your own network, so that feeds from your other services work. If other people have accounts, set `HUGINN_BLOCK_PRIVATE_NETWORKS=true` so nobody can use Huginn to probe your network. It checks the address actually connected to, so redirects and names that resolve to private addresses are refused too.
 - Put Huginn behind a reverse proxy with HTTPS if you reach it from outside your home network. It marks its cookie `Secure` when the proxy sends `X-Forwarded-Proto: https`.
 - Pictures inside articles are loaded by your browser straight from the feed's site, over HTTPS only.
 - Each feed keeps its newest 1000 articles.

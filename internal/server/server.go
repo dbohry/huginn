@@ -18,10 +18,19 @@ func New(conn *sql.DB, assets fs.FS, version string) http.Handler {
 	return newServer(conn, version).routes(assets)
 }
 
+// Options are settings that change how the server behaves.
+type Options struct {
+	// BlockPrivate refuses to fetch feeds from private networks.
+	BlockPrivate bool
+}
+
 // Start is New for the real program: it also starts the background refresher,
 // which runs until ctx ends. Tests use New and drive the refresher by hand.
-func Start(ctx context.Context, conn *sql.DB, assets fs.FS, version string) http.Handler {
+func Start(ctx context.Context, conn *sql.DB, assets fs.FS, version string, opts Options) http.Handler {
 	s := newServer(conn, version)
+	if opts.BlockPrivate {
+		s.refresh.Fetcher.BlockPrivateNetworks()
+	}
 	go s.refresh.Run(ctx)
 	return s.routes(assets)
 }

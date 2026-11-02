@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -34,6 +35,8 @@ Commands:
 Environment:
   HUGINN_ADDR       Listen address (default ":8080")
   HUGINN_DATA_DIR   Directory for the database (default "/data")
+  HUGINN_BLOCK_PRIVATE_NETWORKS
+                    Set to true to refuse feeds on private networks (default false)
 `
 
 func main() {
@@ -47,7 +50,7 @@ func main() {
 	case "serve":
 		err = serve(config.Load())
 	case "reset-password":
-		err = resetPassword(config.Load(), os.Args[2:])
+		err = resetPassword(config.Load(), os.Args[2:], os.Stdout)
 	case "healthcheck":
 		err = healthcheck(config.Load())
 	case "version":
@@ -85,7 +88,7 @@ func serve(cfg config.Config) error {
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           server.Start(ctx, conn, webui.Assets(), version),
+		Handler:           server.Start(ctx, conn, webui.Assets(), version, server.Options{BlockPrivate: cfg.BlockPrivate}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -138,7 +141,7 @@ func purgeSessions(ctx context.Context, st *store.Store, log *slog.Logger) {
 
 // resetPassword is the way back in for someone who is locked out. It runs on
 // the machine that hosts Huginn, so it needs access to the data directory.
-func resetPassword(cfg config.Config, args []string) error {
+func resetPassword(cfg config.Config, args []string, out io.Writer) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: huginn reset-password <username>")
 	}
@@ -165,8 +168,8 @@ func resetPassword(cfg config.Config, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Temporary password for %s: %s\n\n", username, temp)
-	fmt.Println("They have been signed out everywhere and must choose a new password the next time they sign in.")
+	fmt.Fprintf(out, "Temporary password for %s: %s\n\n", username, temp)
+	fmt.Fprintln(out, "They have been signed out everywhere and must choose a new password the next time they sign in.")
 	return nil
 }
 

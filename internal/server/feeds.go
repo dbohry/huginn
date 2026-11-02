@@ -244,7 +244,7 @@ func isFetchProblem(err error) bool {
 	var status *feed.StatusError
 	var netErr net.Error
 	var urlErr *url.Error
-	return errors.Is(err, feed.ErrNotAFeed) || errors.Is(err, feed.ErrTooLarge) ||
+	return errors.Is(err, feed.ErrNotAFeed) || errors.Is(err, feed.ErrTooLarge) || errors.Is(err, feed.ErrPrivateAddress) ||
 		errors.Is(err, context.DeadlineExceeded) ||
 		errors.As(err, &status) || errors.As(err, &netErr) || errors.As(err, &urlErr)
 }
@@ -258,6 +258,8 @@ func fetchMessage(err error) string {
 		return "That address is not an RSS, Atom or JSON feed."
 	case errors.Is(err, feed.ErrTooLarge):
 		return "That feed is too large."
+	case errors.Is(err, feed.ErrPrivateAddress):
+		return "That address is on a private network, which this Huginn does not fetch from."
 	case errors.As(err, &status):
 		return "The site answered \"" + status.Status + "\"."
 	case errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()):

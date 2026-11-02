@@ -38,3 +38,15 @@ func TestHealthURL(t *testing.T) {
 		}
 	}
 }
+
+func TestBlockPrivateSwitch(t *testing.T) {
+	for value, want := range map[string]bool{
+		"": false, "false": false, "0": false, "no": false, "nonsense": false,
+		"1": true, "true": true, "TRUE": true, " yes ": true, "on": true,
+	} {
+		t.Setenv("HUGINN_BLOCK_PRIVATE_NETWORKS", value)
+		if got := Load().BlockPrivate; got != want {
+			t.Errorf("HUGINN_BLOCK_PRIVATE_NETWORKS=%q: BlockPrivate = %v, want %v", value, got, want)
+		}
+	}
+}

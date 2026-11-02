@@ -163,6 +163,23 @@ func TestAddingASiteSubscribesToTheFeedItAdvertises(t *testing.T) {
 	mustStatus(t, b.do("POST", "/api/feeds", m{"url": site.URL + "/home"}), 409)
 }
 
+func TestPrivateNetworksCanBeBlocked(t *testing.T) {
+	e := newEnv(t)
+	e.s.refresh.Fetcher.BlockPrivateNetworks()
+	site := feedSite(t) // on 127.0.0.1
+	b := e.browser()
+	mustStatus(t, b.setup("alex", "alex-password-1"), 201)
+
+	r := b.do("POST", "/api/feeds", m{"url": site.URL + "/rss"})
+	mustStatus(t, r, 422)
+	if !strings.Contains(r.errMsg(), "private network") {
+		t.Errorf("message = %q", r.errMsg())
+	}
+	if feeds := b.do("GET", "/api/feeds", nil).list("feeds"); len(feeds) != 0 {
+		t.Errorf("%d feeds left behind", len(feeds))
+	}
+}
+
 func TestFeedsAndArticlesBelongToTheirUser(t *testing.T) {
 	e := newEnv(t)
 	site := feedSite(t)

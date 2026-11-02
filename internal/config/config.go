@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -18,6 +19,9 @@ type Config struct {
 	Addr string
 	// DataDir is the directory that holds the database (HUGINN_DATA_DIR).
 	DataDir string
+	// BlockPrivate makes Huginn refuse to fetch feeds from private networks
+	// (HUGINN_BLOCK_PRIVATE_NETWORKS=true).
+	BlockPrivate bool
 }
 
 // Load reads the configuration from the environment, applying defaults.
@@ -25,6 +29,8 @@ func Load() Config {
 	return Config{
 		Addr:    getenv("HUGINN_ADDR", defaultAddr),
 		DataDir: getenv("HUGINN_DATA_DIR", defaultDataDir),
+
+		BlockPrivate: getbool("HUGINN_BLOCK_PRIVATE_NETWORKS"),
 	}
 }
 
@@ -41,6 +47,15 @@ func (c Config) HealthURL() string {
 		port = "8080"
 	}
 	return "http://" + net.JoinHostPort("127.0.0.1", port) + "/healthz"
+}
+
+// getbool reads a switch: 1, true, yes or on turn it on, anything else is off.
+func getbool(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
 }
 
 func getenv(key, fallback string) string {

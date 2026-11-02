@@ -3,6 +3,7 @@ package feed
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -235,5 +236,52 @@ func TestDiscoverFindsTheAdvertisedFeed(t *testing.T) {
 	}
 	if _, err := f.Discover(ctx, "ftp://example.com/"); err == nil {
 		t.Fatal("a non-web address should be refused")
+	}
+}
+
+func TestIsPrivate(t *testing.T) {
+	private := []string{"127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.1.1", "169.254.169.254", "100.64.0.1",
+		"0.0.0.0", "::1", "fe80::1", "fd00::1", "::ffff:127.0.0.1", "::ffff:10.0.0.1", "224.0.0.1", "198.18.0.1"}
+	public := []string{"8.8.8.8", "1.1.1.1", "93.184.216.34", "2606:4700:4700::1111", "172.32.0.1", "100.128.0.1"}
+	for _, s := range private {
+		if !isPrivate(net.ParseIP(s)) {
+			t.Errorf("%s should count as private", s)
+		}
+	}
+	for _, s := range public {
+		if isPrivate(net.ParseIP(s)) {
+			t.Errorf("%s should count as public", s)
+		}
+	}
+}
+
+func TestBlockPrivateNetworks(t *testing.T) {
+	body := fixture(t, "rss.xml")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write(body) }))
+	defer srv.Close() // listens on 127.0.0.1, which is private
+	ctx := context.Background()
+
+	open := newTestFetcher()
+	if _, err := open.Fetch(ctx, srv.URL, "", ""); err != nil {
+		t.Fatalf("without the option a local feed should work: %v", err)
+	}
+
+	blocked := newTestFetcher()
+	blocked.BlockPrivateNetworks()
+	if _, err := blocked.Fetch(ctx, srv.URL, "", ""); !errors.Is(err, ErrPrivateAddress) {
+		t.Fatalf("a local feed should be refused with ErrPrivateAddress, got %v", err)
+	}
+	if _, err := blocked.Discover(ctx, srv.URL); !errors.Is(err, ErrPrivateAddress) {
+		t.Fatalf("discovery should be refused too, got %v", err)
+	}
+
+	// A public-looking address that redirects to a private one is refused at the
+	// second hop, not only at the first.
+	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, srv.URL, http.StatusFound)
+	}))
+	defer redirect.Close()
+	if _, err := blocked.Fetch(ctx, redirect.URL, "", ""); !errors.Is(err, ErrPrivateAddress) {
+		t.Fatalf("a redirect to a local address should be refused, got %v", err)
 	}
 }
