@@ -30,8 +30,8 @@ func TestMigrateIsIdempotent(t *testing.T) {
 	if err := d.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
-	if n != 2 {
-		t.Fatalf("applied %d migrations, want 2", n)
+	if n != 4 {
+		t.Fatalf("applied %d migrations, want 4", n)
 	}
 }
 
@@ -41,7 +41,10 @@ func TestItemsAreUniquePerFeedAndCascade(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := d.Exec(`INSERT INTO feeds (id, url) VALUES (1, 'https://example.com/feed.xml')`); err != nil {
+	if _, err := d.Exec(`INSERT INTO users (id, username, password_hash, created_at) VALUES (1, 'a', 'x', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Exec(`INSERT INTO feeds (id, user_id, url) VALUES (1, 1, 'https://example.com/feed.xml')`); err != nil {
 		t.Fatal(err)
 	}
 	insert := `INSERT INTO items (feed_id, guid, title) VALUES (1, 'a', 'First')`

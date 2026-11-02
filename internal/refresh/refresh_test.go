@@ -28,6 +28,9 @@ func setup(t *testing.T) (*Service, *store.Store, *sql.DB, *time.Time) {
 	if err := db.Migrate(conn); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := conn.Exec(`INSERT INTO users (id, username, password_hash, created_at) VALUES (1, 'tester', 'x', 0)`); err != nil {
+		t.Fatal(err)
+	}
 	st := store.New(conn)
 	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
 	f := feed.NewFetcher("test")
@@ -73,7 +76,7 @@ func TestRefreshFeedStoresItemsThenUsesConditionalGet(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	id, _ := st.CreateFeed(ctx, srv.URL)
+	id, _ := st.CreateFeed(ctx, 1, srv.URL)
 	if err := svc.RefreshFeed(ctx, id); err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +110,7 @@ func TestRefreshFeedFailureBacksOff(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	id, _ := st.CreateFeed(ctx, srv.URL)
+	id, _ := st.CreateFeed(ctx, 1, srv.URL)
 
 	if err := svc.RefreshFeed(ctx, id); err == nil {
 		t.Fatal("expected the fetch error to be returned")
@@ -133,9 +136,9 @@ func TestRefreshDueOnlyFetchesDueFeeds(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	due1, _ := st.CreateFeed(ctx, srv.URL+"/one")
-	due2, _ := st.CreateFeed(ctx, srv.URL+"/two")
-	notDue, _ := st.CreateFeed(ctx, srv.URL+"/three")
+	due1, _ := st.CreateFeed(ctx, 1, srv.URL+"/one")
+	due2, _ := st.CreateFeed(ctx, 1, srv.URL+"/two")
+	notDue, _ := st.CreateFeed(ctx, 1, srv.URL+"/three")
 	st.RecordSuccess(ctx, notDue, *now, now.Add(time.Hour), "", "", "", "")
 
 	if n := svc.RefreshDue(ctx); n != 2 {

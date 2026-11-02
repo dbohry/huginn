@@ -33,6 +33,7 @@ func New(db *sql.DB) *Store { return &Store{db: db} }
 // Feed is a subscribed feed and its fetch state.
 type Feed struct {
 	ID            int64
+	UserID        int64
 	URL           string
 	Title         string
 	SiteURL       string
@@ -44,14 +45,14 @@ type Feed struct {
 	NextFetchAt   *time.Time
 }
 
-const feedColumns = `id, url, title, site_url, etag, last_modified, last_fetched_at, last_error, error_count, next_fetch_at`
+const feedColumns = `id, user_id, url, title, site_url, etag, last_modified, last_fetched_at, last_error, error_count, next_fetch_at`
 
 type scanner interface{ Scan(dest ...any) error }
 
 func scanFeed(row scanner) (Feed, error) {
 	var f Feed
 	var fetched, next sql.NullString
-	err := row.Scan(&f.ID, &f.URL, &f.Title, &f.SiteURL, &f.ETag, &f.LastModified,
+	err := row.Scan(&f.ID, &f.UserID, &f.URL, &f.Title, &f.SiteURL, &f.ETag, &f.LastModified,
 		&fetched, &f.LastError, &f.ErrorCount, &next)
 	if err != nil {
 		return Feed{}, err
@@ -165,10 +166,10 @@ func (s *Store) UpsertItems(ctx context.Context, feedID int64, items []feed.Item
 	return tx.Commit()
 }
 
-// CreateFeed subscribes to a feed address and returns its id. It returns
-// ErrExists if the address is already subscribed.
-func (s *Store) CreateFeed(ctx context.Context, url string) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `INSERT INTO feeds (url) VALUES (?)`, url)
+// CreateFeed subscribes a user to a feed address and returns its id. It returns
+// ErrExists if that user already follows the address.
+func (s *Store) CreateFeed(ctx context.Context, userID int64, url string) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `INSERT INTO feeds (user_id, url) VALUES (?, ?)`, userID, url)
 	if err != nil {
 		if isUnique(err) {
 			return 0, ErrExists
@@ -176,4 +177,38 @@ func (s *Store) CreateFeed(ctx context.Context, url string) (int64, error) {
 		return 0, err
 	}
 	return res.LastInsertId()
+}
+
+// FeedSummary is a feed with how many of its articles are unread.
+type FeedSummary struct {
+	Feed
+	Unread int
+}
+
+// ListFeeds returns one user's feeds, sorted by title, with unread counts.
+func (s *Store) ListFeeds(ctx context.Context, userID int64) ([]FeedSummary, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT f.id, f.user_id, f.url, f.title, f.site_url, f.etag,
+			f.last_modified, f.last_fetched_at, f.last_error, f.error_count, f.next_fetch_at,
+			COALESCE(SUM(CASE WHEN i.is_read = 0 THEN 1 ELSE 0 END), 0)
+		FROM feeds f LEFT JOIN items i ON i.feed_id = f.id
+		WHERE f.user_id = ?
+		GROUP BY f.id
+		ORDER BY lower(CASE WHEN f.title != '' THEN f.title ELSE f.url END), f.id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []FeedSummary{}
+	for rows.Next() {
+		var fs FeedSummary
+		var fetched, next sql.NullString
+		if err := rows.Scan(&fs.ID, &fs.UserID, &fs.URL, &fs.Title, &fs.SiteURL, &fs.ETag,
+			&fs.LastModified, &fetched, &fs.LastError, &fs.ErrorCount, &next, &fs.Unread); err != nil {
+			return nil, err
+		}
+		fs.LastFetchedAt, fs.NextFetchAt = parseTime(fetched), parseTime(next)
+		out = append(out, fs)
+	}
+	return out, rows.Err()
 }

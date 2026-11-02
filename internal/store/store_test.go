@@ -22,6 +22,10 @@ func newStore(t *testing.T) (*Store, *sql.DB) {
 	if err := db.Migrate(conn); err != nil {
 		t.Fatal(err)
 	}
+	// Feeds belong to a user: every test here uses user 1.
+	if _, err := conn.Exec(`INSERT INTO users (id, username, password_hash, created_at) VALUES (1, 'tester', 'x', 0)`); err != nil {
+		t.Fatal(err)
+	}
 	return New(conn), conn
 }
 
@@ -31,11 +35,11 @@ func TestCreateFeedRejectsDuplicates(t *testing.T) {
 	st, _ := newStore(t)
 	ctx := context.Background()
 
-	id, err := st.CreateFeed(ctx, "https://example.com/feed")
+	id, err := st.CreateFeed(ctx, 1, "https://example.com/feed")
 	if err != nil || id == 0 {
 		t.Fatalf("create: %d, %v", id, err)
 	}
-	if _, err := st.CreateFeed(ctx, "https://example.com/feed"); err != ErrExists {
+	if _, err := st.CreateFeed(ctx, 1, "https://example.com/feed"); err != ErrExists {
 		t.Fatalf("duplicate: err = %v, want ErrExists", err)
 	}
 	if _, err := st.GetFeed(ctx, 999); err != ErrNotFound {
@@ -48,9 +52,9 @@ func TestDueFeedsOrderingAndBackoff(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
 
-	fresh, _ := st.CreateFeed(ctx, "https://a.example/feed")   // never fetched: due
-	later, _ := st.CreateFeed(ctx, "https://b.example/feed")   // next fetch in the future
-	overdue, _ := st.CreateFeed(ctx, "https://c.example/feed") // next fetch passed
+	fresh, _ := st.CreateFeed(ctx, 1, "https://a.example/feed")   // never fetched: due
+	later, _ := st.CreateFeed(ctx, 1, "https://b.example/feed")   // next fetch in the future
+	overdue, _ := st.CreateFeed(ctx, 1, "https://c.example/feed") // next fetch passed
 
 	if err := st.RecordSuccess(ctx, later, now, now.Add(time.Hour), "", "", "", ""); err != nil {
 		t.Fatal(err)
@@ -90,7 +94,7 @@ func TestDueFeedsOrderingAndBackoff(t *testing.T) {
 func TestUpsertItemsKeepsReadStateAndDates(t *testing.T) {
 	st, conn := newStore(t)
 	ctx := context.Background()
-	id, _ := st.CreateFeed(ctx, "https://example.com/feed")
+	id, _ := st.CreateFeed(ctx, 1, "https://example.com/feed")
 	t1 := time.Date(2026, 11, 1, 9, 0, 0, 0, time.UTC)
 	first := time.Date(2026, 11, 2, 8, 0, 0, 0, time.UTC)
 
@@ -132,7 +136,7 @@ func TestUpsertItemsKeepsReadStateAndDates(t *testing.T) {
 func TestUpsertItemsTrimsOldest(t *testing.T) {
 	st, conn := newStore(t)
 	ctx := context.Background()
-	id, _ := st.CreateFeed(ctx, "https://example.com/feed")
+	id, _ := st.CreateFeed(ctx, 1, "https://example.com/feed")
 	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	var items []feed.Item

@@ -15,13 +15,32 @@ import (
 // New returns the HTTP handler for the whole application. assets holds the
 // built frontend (index.html at its root). version is reported by /healthz.
 func New(conn *sql.DB, assets fs.FS, version string) http.Handler {
+	return newServer(conn, version).routes(assets)
+}
+
+func (s *server) routes(assets fs.FS) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", health(conn, version))
+	mux.HandleFunc("GET /healthz", health(s.db, s.version))
+
+	mux.HandleFunc("GET /api/setup/status", s.setupStatus)
+	mux.HandleFunc("POST /api/setup", s.setup)
+	mux.HandleFunc("POST /api/login", s.login)
+	mux.HandleFunc("POST /api/logout", s.logout)
+	mux.Handle("GET /api/me", s.authed(true, s.me))
+	mux.Handle("POST /api/me/password", s.authed(true, s.changePassword))
+
+	mux.Handle("GET /api/users", s.admin(s.listUsers))
+	mux.Handle("POST /api/users", s.admin(s.createUser))
+	mux.Handle("POST /api/users/{id}/reset-password", s.admin(s.resetUserPassword))
+	mux.Handle("DELETE /api/users/{id}", s.admin(s.deleteUser))
+
+	mux.Handle("GET /api/feeds", s.authed(false, s.listFeeds))
+
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
 	mux.Handle("/", static(assets))
-	return secureHeaders(mux)
+	return secureHeaders(sameOrigin(mux))
 }
 
 func health(conn *sql.DB, version string) http.HandlerFunc {
