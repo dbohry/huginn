@@ -44,6 +44,17 @@ const systems = [
     summary: 'Files you can read, grep and diff.',
     body: '<p>Plain text survives because every tool can read it.</p>' },
 ];
+const gardens = [
+  { id: 'tg1', title: 'Growing herbs on a north-facing sill', link: 'https://example.net/tg1', date: 'Mon, 02 Nov 2026 06:30:00 +0000',
+    summary: 'Mint, chives and parsley all tolerate less light than the packets suggest.',
+    body: '<p>A north-facing window gets no direct sun, but bright indirect light is enough for leafy herbs.</p><p>Rotate the pots a quarter turn each week and water only when the top knuckle of soil is dry.</p>' },
+  { id: 'tg2', title: 'Compost, without the mystery', link: 'https://example.net/tg2', date: 'Fri, 30 Oct 2026 10:00:00 +0000',
+    summary: 'Greens, browns and patience: the only three rules that matter.',
+    body: '<p>Roughly equal parts wet kitchen waste and dry leaves or cardboard. Turn it when you remember. Wait.</p>' },
+  { id: 'tg3', title: 'What to sow in November', link: 'https://example.net/tg3', date: 'Wed, 28 Oct 2026 10:00:00 +0000',
+    summary: 'Broad beans, garlic and a last row of lettuce under a cloche.',
+    body: '<p>Garlic wants a cold spell, so get it in the ground now.</p>' },
+];
 // A feed written by someone hostile. None of this may run or show.
 const hostile = [
   { id: 'h1', title: 'Totally harmless post', link: 'javascript:window.__pwned=1', date: 'Mon, 02 Nov 2026 07:00:00 +0000',
@@ -60,6 +71,7 @@ function start(port = 0) {
     const base = `http://127.0.0.1:${server.address().port}`;
     switch (req.url) {
       case '/fieldnotes.xml': return send('application/rss+xml', rss('Field Notes', base + '/fieldnotes/', fieldNotes));
+      case '/gardens.xml': return send('application/rss+xml', rss('Tiny Gardens', base + '/gardens/', gardens));
       case '/systems.atom': return send('application/atom+xml', atom('Systems Weekly', base + '/systems/', systems));
       case '/systems/': return send('text/html', `<!doctype html><html><head><title>Systems Weekly</title><link rel="alternate" type="application/atom+xml" href="/systems.atom"></head><body>Home</body></html>`);
       case '/hostile.xml': return send('application/rss+xml', rss('Hostile Feed', base + '/hostile/', hostile));

@@ -1,0 +1,14 @@
+services:
+  huginn:
+    image: dbohry/huginn:latest
+    # To build from this repository instead:
+    # build: .
+    container_name: huginn
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - huginn-data:/data
+
+volumes:
+  huginn-data:

@@ -4,7 +4,11 @@
   "description": "Browser checks that run against a running Huginn.",
   "scripts": {
     "flows": "node flows.js",
-    "a11y": "node a11y.js"
+    "a11y": "node a11y.js",
+    "screenshots": "node screenshots.js"
   },
-  "devDependencies": { "axe-core": "4.14.0", "playwright": "^1.50.0" }
+  "devDependencies": {
+    "axe-core": "4.14.0",
+    "playwright": "^1.50.0"
+  }
 }

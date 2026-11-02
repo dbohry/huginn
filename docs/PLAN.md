@@ -66,6 +66,8 @@ it is fetched twice. That keeps read state trivial, and it is cheap at this size
 
 ## Milestones
 
+All seven are done.
+
 | # | Milestone | Done when |
 |---|---|---|
 | 1 | **Skeleton.** Go module, config, SQLite with migrations, `feeds` and `items` tables, `/healthz`, `healthcheck` subcommand, Makefile, Dockerfile, CI, release workflow | CI is green and the container reports healthy |
@@ -78,6 +80,14 @@ it is fetched twice. That keeps read state trivial, and it is cheap at this size
 
 Deploying automatically (the Portainer webhook Bifrost uses) is left until
 after the MVP.
+
+## How the work differed from the plan
+
+- The HTML sanitizer was built with the API (milestone 4), because that is where article content first reaches a browser. Milestone 6 added the hostile-feed tests.
+- Backoff for failing feeds and one-fetch-per-host politeness were built with the fetcher (milestone 2).
+- Unfollowing a feed from the interface, showing a feed's last error, and shifting headings inside articles below the article title were added when the browser and accessibility checks showed they were needed.
+- The browser checks (`make e2e`) are not part of CI yet, as in Bifrost.
+- The Docker image could not be built while this was written (there was no Docker daemon in the environment), so CI's `image` job is its first real build.
 
 ## Main risks
 
