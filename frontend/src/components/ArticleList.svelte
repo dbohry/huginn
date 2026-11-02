@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ago } from '../lib/time';
+  import { ago, updated } from '../lib/time';
   import { reader } from '../lib/reader.svelte';
 
   async function unfollow() {
@@ -36,8 +36,12 @@
       {#if reader.currentFeed.error}
         <p class="feederror">Could not be fetched: {reader.currentFeed.error}</p>
       {/if}
+      <p class="updated">{updated(reader.currentFeed.lastFetchedAt)}</p>
       <div class="feedlinks">
         <a href={reader.currentFeed.siteUrl || reader.currentFeed.url} target="_blank" rel="noopener noreferrer">Visit site</a>
+        <button class="plain" disabled={reader.refreshingFeedId !== null} onclick={() => reader.refreshFeed(reader.currentFeed!.id)}>
+          {reader.refreshingFeedId === reader.currentFeed.id ? 'Refreshing…' : 'Refresh'}
+        </button>
         <button class="plain" onclick={unfollow}>Unfollow</button>
       </div>
     </div>
@@ -169,6 +173,11 @@
     color: var(--bad);
     overflow-wrap: anywhere;
   }
+  .updated {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
   .feedlinks {
     display: flex;
     align-items: center;
@@ -187,7 +196,14 @@
     text-decoration: none;
   }
   .plain {
-    padding: 0 0 0 8px;
+    padding: 0 8px;
+  }
+  .plain:last-child {
+    padding-right: 0;
+  }
+  .plain:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
   .feedlinks a:hover,
   .plain:hover {

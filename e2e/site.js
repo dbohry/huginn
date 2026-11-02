@@ -66,11 +66,15 @@ const hostile = [
 ];
 
 function start(port = 0) {
+  let flakyHits = 0;
   const server = http.createServer((req, res) => {
     const send = (type, body) => { res.writeHead(200, { 'Content-Type': type }); res.end(body); };
     const base = `http://127.0.0.1:${server.address().port}`;
     switch (req.url) {
       case '/fieldnotes.xml': return send('application/rss+xml', rss('Field Notes', base + '/fieldnotes/', fieldNotes));
+      case '/flaky.xml': // works once, then fails
+        if (++flakyHits > 1) { res.writeHead(500); return res.end('down'); }
+        return send('application/rss+xml', rss('Flaky Feed', base + '/flaky/', [{ id: 'f1', title: 'Only article', link: 'https://example.com/f1', date: 'Mon, 02 Nov 2026 05:00:00 +0000', summary: 'It worked once.', body: '<p>It worked once.</p>' }]));
       case '/gardens.xml': return send('application/rss+xml', rss('Tiny Gardens', base + '/gardens/', gardens));
       case '/systems.atom': return send('application/atom+xml', atom('Systems Weekly', base + '/systems/', systems));
       case '/systems/': return send('text/html', `<!doctype html><html><head><title>Systems Weekly</title><link rel="alternate" type="application/atom+xml" href="/systems.atom"></head><body>Home</body></html>`);

@@ -91,8 +91,9 @@ async function addFeed(page, address) {
       await page.getByRole('button', { name: /Walking the long way/ }).click();
       await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
       await page.getByLabel('Unread only').check();
-      await page.waitForFunction(() => !document.body.innerText.includes('Walking the long way to the station') || document.querySelectorAll('.item').length === 2);
-      assert.strictEqual(await page.locator('.item').count(), 2);
+      await page.waitForFunction(() => document.querySelectorAll('.item').length === 2);
+      const titles = (await page.locator('.item .title').allInnerTexts()).sort();
+      assert.deepStrictEqual(titles, ['A week with only a paper calendar', 'Notes on keeping a notebook']);
       await page.getByLabel('Unread only').uncheck();
       await page.waitForFunction(() => document.querySelectorAll('.item').length === 3);
     });
@@ -119,6 +120,26 @@ async function addFeed(page, address) {
       assert.strictEqual(await fine.getAttribute('target'), '_blank');
       assert.match(await fine.getAttribute('rel'), /noopener/);
       assert.strictEqual(await page.getByRole('link', { name: 'Open original' }).count(), 0, 'a javascript: link was offered');
+    });
+
+    await step('refreshing one feed shows when it was updated', async () => {
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Field Notes/ }).click();
+      await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+      await page.getByText('Updated just now').waitFor();
+    });
+
+    await step('a feed that starts failing says so, and why', async () => {
+      await addFeed(page, site.url + '/flaky.xml');
+      await page.getByRole('heading', { name: 'Flaky Feed', level: 1 }).waitFor();
+      await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+      const alert = page.getByRole('alert');
+      await alert.waitFor();
+      assert.match(await alert.innerText(), /500 Internal Server Error/);
+      // The failure stays on the feed after the message is gone.
+      await page.getByText(/Could not be fetched: .*500/).waitFor();
+      assert.ok(await page.getByRole('navigation', { name: 'Feeds' }).getByText('Could not be fetched.').count() >= 1);
+      await page.getByRole('button', { name: 'Unfollow' }).click();
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
     });
 
     await step('unfollowing a feed removes it and its articles', async () => {

@@ -21,6 +21,8 @@ class Reader {
   loadingMore = $state(false);
   loadingItem = $state(false);
   refreshing = $state(false);
+  /** The id of the one feed being refreshed, if any. */
+  refreshingFeedId = $state<number | null>(null);
   /** A problem to show above the lists, or "". */
   error = $state('');
   /** Said aloud by screen readers. */
@@ -168,6 +170,24 @@ class Reader {
     } finally {
       this.refreshing = false;
     }
+  }
+
+  /** Fetches one feed now, then reloads what the page shows. A failure is shown and also kept on the feed. */
+  async refreshFeed(id: number) {
+    if (this.refreshingFeedId !== null) return;
+    this.refreshingFeedId = id;
+    this.announcement = 'Refreshing this feed';
+    let failure = '';
+    try {
+      await api.refreshFeed(id);
+    } catch (e) {
+      failure = message(e);
+    }
+    // Reloading clears any message, so the failure is shown after it.
+    await Promise.all([this.loadFeeds(), this.loadItems()]);
+    this.error = failure;
+    this.announcement = failure ? 'Could not refresh this feed' : 'Feed refreshed';
+    this.refreshingFeedId = null;
   }
 
   /** Subscribes to a feed. Throws an ApiError with a message for the form to show. */
