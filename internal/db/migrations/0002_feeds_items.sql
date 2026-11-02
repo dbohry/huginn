@@ -8,6 +8,8 @@ CREATE TABLE feeds (
     last_modified   TEXT NOT NULL DEFAULT '',
     last_fetched_at TEXT,
     last_error      TEXT NOT NULL DEFAULT '',
+    error_count     INTEGER NOT NULL DEFAULT 0,
+    next_fetch_at   TEXT,
     created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) STRICT;
 
