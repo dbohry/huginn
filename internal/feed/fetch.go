@@ -21,6 +21,14 @@ const (
 // ErrTooLarge is returned when a feed document is bigger than the limit.
 var ErrTooLarge = errors.New("feed is too large")
 
+// StatusError is returned when the server answers with anything but 200 or 304.
+type StatusError struct {
+	// Status is the HTTP status line, such as "404 Not Found".
+	Status string
+}
+
+func (e *StatusError) Error() string { return "server answered " + e.Status }
+
 // Fetcher downloads feeds politely: it sends conditional requests, limits the
 // size it reads and identifies itself.
 type Fetcher struct {
@@ -81,7 +89,7 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL, etag, lastModified string) 
 	case resp.StatusCode == http.StatusNotModified:
 		return &Result{NotModified: true, ETag: etag, LastModified: lastModified}, nil
 	case resp.StatusCode != http.StatusOK:
-		return nil, fmt.Errorf("server answered %s", resp.Status)
+		return nil, &StatusError{Status: resp.Status}
 	}
 
 	body, err := readLimited(resp.Body, f.MaxBytes)

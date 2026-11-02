@@ -85,7 +85,7 @@ func serve(cfg config.Config) error {
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           server.New(conn, webui.Assets(), version),
+		Handler:           server.Start(ctx, conn, webui.Assets(), version),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

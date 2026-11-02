@@ -169,7 +169,13 @@ func (s *Store) UpsertItems(ctx context.Context, feedID int64, items []feed.Item
 // CreateFeed subscribes a user to a feed address and returns its id. It returns
 // ErrExists if that user already follows the address.
 func (s *Store) CreateFeed(ctx context.Context, userID int64, url string) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `INSERT INTO feeds (user_id, url) VALUES (?, ?)`, userID, url)
+	return s.CreateFeedWithTitle(ctx, userID, url, "")
+}
+
+// CreateFeedWithTitle is CreateFeed with a title to show until the feed is first
+// fetched, for example from an OPML file.
+func (s *Store) CreateFeedWithTitle(ctx context.Context, userID int64, url, title string) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `INSERT INTO feeds (user_id, url, title) VALUES (?, ?, ?)`, userID, url, title)
 	if err != nil {
 		if isUnique(err) {
 			return 0, ErrExists

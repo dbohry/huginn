@@ -4,6 +4,7 @@ package feed
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -36,11 +37,14 @@ type Item struct {
 	ContentHTML string
 }
 
+// ErrNotAFeed means a document could not be read as RSS, Atom or JSON Feed.
+var ErrNotAFeed = errors.New("not a feed")
+
 // Parse reads an RSS, Atom or JSON Feed document.
 func Parse(r io.Reader) (*Parsed, error) {
 	f, err := gofeed.NewParser().Parse(r)
 	if err != nil {
-		return nil, fmt.Errorf("parse feed: %w", err)
+		return nil, fmt.Errorf("%w: %v", ErrNotAFeed, err)
 	}
 
 	out := &Parsed{

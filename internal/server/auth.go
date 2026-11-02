@@ -13,10 +13,13 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/dbohry/huginn/internal/auth"
+	"github.com/dbohry/huginn/internal/feed"
+	"github.com/dbohry/huginn/internal/refresh"
 	"github.com/dbohry/huginn/internal/store"
 )
 
@@ -53,9 +56,14 @@ type server struct {
 	version string
 	now     func() time.Time
 
-	loginByIP    *auth.Limiter
-	loginByUser  *auth.Limiter
-	passwordByID *auth.Limiter
+	refresh *refresh.Service
+	// bg tracks background work (refreshing feeds after an import, for example).
+	bg sync.WaitGroup
+
+	loginByIP     *auth.Limiter
+	loginByUser   *auth.Limiter
+	passwordByID  *auth.Limiter
+	refreshByUser *auth.Limiter
 
 	// dummyHash is checked when a username does not exist, so a failed sign-in
 	// takes as long whether or not the account is real.
@@ -67,15 +75,18 @@ func newServer(conn *sql.DB, version string) *server {
 	if err != nil {
 		panic(err) // only fails if the system has no random source
 	}
+	st := store.New(conn)
 	return &server{
-		db:           conn,
-		store:        store.New(conn),
-		version:      version,
-		now:          time.Now,
-		loginByIP:    auth.NewLimiter(20, 15*time.Minute),
-		loginByUser:  auth.NewLimiter(10, 15*time.Minute),
-		passwordByID: auth.NewLimiter(10, 15*time.Minute),
-		dummyHash:    dummy,
+		db:            conn,
+		store:         st,
+		version:       version,
+		now:           time.Now,
+		refresh:       refresh.New(st, feed.NewFetcher(version), slog.Default()),
+		loginByIP:     auth.NewLimiter(20, 15*time.Minute),
+		loginByUser:   auth.NewLimiter(10, 15*time.Minute),
+		passwordByID:  auth.NewLimiter(10, 15*time.Minute),
+		refreshByUser: auth.NewLimiter(20, time.Minute),
+		dummyHash:     dummy,
 	}
 }
 

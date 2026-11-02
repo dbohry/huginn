@@ -18,6 +18,14 @@ func New(conn *sql.DB, assets fs.FS, version string) http.Handler {
 	return newServer(conn, version).routes(assets)
 }
 
+// Start is New for the real program: it also starts the background refresher,
+// which runs until ctx ends. Tests use New and drive the refresher by hand.
+func Start(ctx context.Context, conn *sql.DB, assets fs.FS, version string) http.Handler {
+	s := newServer(conn, version)
+	go s.refresh.Run(ctx)
+	return s.routes(assets)
+}
+
 func (s *server) routes(assets fs.FS) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", health(s.db, s.version))
@@ -35,6 +43,18 @@ func (s *server) routes(assets fs.FS) http.Handler {
 	mux.Handle("DELETE /api/users/{id}", s.admin(s.deleteUser))
 
 	mux.Handle("GET /api/feeds", s.authed(false, s.listFeeds))
+	mux.Handle("POST /api/feeds", s.authed(false, s.addFeed))
+	mux.Handle("DELETE /api/feeds/{id}", s.authed(false, s.deleteFeed))
+	mux.Handle("POST /api/feeds/{id}/refresh", s.authed(false, s.refreshFeed))
+	mux.Handle("POST /api/refresh", s.authed(false, s.refreshAll))
+
+	mux.Handle("GET /api/items", s.authed(false, s.listItems))
+	mux.Handle("GET /api/items/{id}", s.authed(false, s.getItem))
+	mux.Handle("PUT /api/items/{id}/read", s.authed(false, s.setRead))
+	mux.Handle("POST /api/read-all", s.authed(false, s.markAllRead))
+
+	mux.Handle("GET /api/opml", s.authed(false, s.exportOPML))
+	mux.Handle("POST /api/opml", s.authed(false, s.importOPML))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
@@ -109,7 +129,7 @@ func secureHeaders(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Content-Security-Policy",
-			"default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
+			"default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
 		next.ServeHTTP(w, r)
 	})
 }

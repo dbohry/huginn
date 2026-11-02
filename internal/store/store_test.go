@@ -153,3 +153,127 @@ func TestUpsertItemsTrimsOldest(t *testing.T) {
 		t.Fatalf("kept %d items, oldest guid %s; want %d and 5", n, oldest, MaxItemsPerFeed)
 	}
 }
+
+func seedItems(t *testing.T, st *Store, feedID int64, base time.Time, n int, prefix string) {
+	t.Helper()
+	var items []feed.Item
+	for i := 0; i < n; i++ {
+		items = append(items, feed.Item{
+			GUID: fmt.Sprintf("%s%d", prefix, i), Title: fmt.Sprintf("%s item %d", prefix, i),
+			Published: ptr(base.Add(time.Duration(i) * time.Hour)), Summary: "<p>sum</p>", ContentHTML: "<p>body</p>",
+		})
+	}
+	if err := st.UpsertItems(context.Background(), feedID, items, base); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestListItemsPagesNewestFirst(t *testing.T) {
+	st, _ := newStore(t)
+	ctx := context.Background()
+	id, _ := st.CreateFeed(ctx, 1, "https://example.com/feed")
+	seedItems(t, st, id, time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), 5, "a")
+
+	page1, next, err := st.ListItems(ctx, ItemFilter{UserID: 1, Limit: 2})
+	if err != nil || len(page1) != 2 || next == nil {
+		t.Fatalf("page 1: %d items, next %v, err %v", len(page1), next, err)
+	}
+	if page1[0].Title != "a item 4" || page1[1].Title != "a item 3" {
+		t.Fatalf("not newest first: %q, %q", page1[0].Title, page1[1].Title)
+	}
+	page2, next, _ := st.ListItems(ctx, ItemFilter{UserID: 1, Limit: 2, After: next})
+	if len(page2) != 2 || page2[0].Title != "a item 2" || next == nil {
+		t.Fatalf("page 2: %+v next %v", page2, next)
+	}
+	page3, next, _ := st.ListItems(ctx, ItemFilter{UserID: 1, Limit: 2, After: next})
+	if len(page3) != 1 || page3[0].Title != "a item 0" || next != nil {
+		t.Fatalf("page 3: %+v next %v", page3, next)
+	}
+}
+
+func TestItemsAreScopedToTheirOwner(t *testing.T) {
+	st, conn := newStore(t)
+	ctx := context.Background()
+	if _, err := conn.Exec(`INSERT INTO users (id, username, password_hash, created_at) VALUES (2, 'other', 'x', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	mine, _ := st.CreateFeed(ctx, 1, "https://example.com/feed")
+	theirs, _ := st.CreateFeed(ctx, 2, "https://example.com/feed")
+	base := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	seedItems(t, st, mine, base, 2, "mine")
+	seedItems(t, st, theirs, base, 3, "theirs")
+
+	items, _, _ := st.ListItems(ctx, ItemFilter{UserID: 1})
+	if len(items) != 2 {
+		t.Fatalf("user 1 sees %d items, want 2", len(items))
+	}
+	var theirItem int64
+	conn.QueryRow(`SELECT id FROM items WHERE feed_id = ? LIMIT 1`, theirs).Scan(&theirItem)
+
+	if _, err := st.GetItem(ctx, 1, theirItem); err != ErrNotFound {
+		t.Errorf("GetItem of another user's item: %v", err)
+	}
+	if err := st.SetRead(ctx, 1, theirItem, true); err != ErrNotFound {
+		t.Errorf("SetRead of another user's item: %v", err)
+	}
+	if err := st.DeleteFeed(ctx, 1, theirs); err != ErrNotFound {
+		t.Errorf("DeleteFeed of another user's feed: %v", err)
+	}
+	if _, err := st.GetUserFeed(ctx, 1, theirs); err != ErrNotFound {
+		t.Errorf("GetUserFeed of another user's feed: %v", err)
+	}
+	if n, _ := st.MarkAllRead(ctx, 1, 0); n != 2 {
+		t.Errorf("MarkAllRead changed %d rows, want only user 1's 2", n)
+	}
+	var unread int
+	conn.QueryRow(`SELECT COUNT(*) FROM items WHERE is_read = 0`).Scan(&unread)
+	if unread != 3 {
+		t.Errorf("%d unread left, want user 2's 3 untouched", unread)
+	}
+}
+
+func TestReadStateAndUnreadCounts(t *testing.T) {
+	st, _ := newStore(t)
+	ctx := context.Background()
+	a, _ := st.CreateFeedWithTitle(ctx, 1, "https://a.example/feed", "Beta")
+	b, _ := st.CreateFeedWithTitle(ctx, 1, "https://b.example/feed", "alpha")
+	base := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	seedItems(t, st, a, base, 3, "a")
+	seedItems(t, st, b, base, 2, "b")
+
+	feeds, _ := st.ListFeeds(ctx, 1)
+	if len(feeds) != 2 || feeds[0].Title != "alpha" || feeds[0].Unread != 2 || feeds[1].Unread != 3 {
+		t.Fatalf("feeds = %+v", feeds)
+	}
+
+	items, _, _ := st.ListItems(ctx, ItemFilter{UserID: 1, FeedID: a})
+	if err := st.SetRead(ctx, 1, items[0].ID, true); err != nil {
+		t.Fatal(err)
+	}
+	unread, _, _ := st.ListItems(ctx, ItemFilter{UserID: 1, FeedID: a, UnreadOnly: true})
+	if len(unread) != 2 {
+		t.Fatalf("%d unread in feed a, want 2", len(unread))
+	}
+	if err := st.SetRead(ctx, 1, items[0].ID, false); err != nil {
+		t.Fatal(err)
+	}
+
+	if n, _ := st.MarkAllRead(ctx, 1, a); n != 3 {
+		t.Fatalf("MarkAllRead(feed a) changed %d, want 3", n)
+	}
+	feeds, _ = st.ListFeeds(ctx, 1)
+	if feeds[0].Unread != 2 || feeds[1].Unread != 0 {
+		t.Fatalf("after marking feed a read: %+v", feeds)
+	}
+
+	full, err := st.GetItem(ctx, 1, items[0].ID)
+	if err != nil || full.ContentHTML != "<p>body</p>" || full.FeedTitle != "Beta" {
+		t.Fatalf("GetItem: %+v, %v", full, err)
+	}
+	if err := st.DeleteFeed(ctx, 1, a); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.GetItem(ctx, 1, items[0].ID); err != ErrNotFound {
+		t.Fatalf("items should go with their feed: %v", err)
+	}
+}
