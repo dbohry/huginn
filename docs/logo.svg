@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 64 64" role="img" aria-label="Huginn">
+  <rect width="64" height="64" rx="16" fill="#2457d6"/>
+  <g transform="translate(6.4 6.4) scale(0.8)">
+    <polygon points="56,30 40,22 28,12 12,22 8,40 22,54 34,44 40,36" fill="#ffffff"/>
+    <polygon points="28,12 40,22 34,30 18,26" fill="#c9d8fa"/>
+    <circle cx="30" cy="27" r="2.6" fill="#2457d6"/>
+  </g>
+</svg>
