@@ -1,0 +1,217 @@
+// The main journeys, in a real browser, against a fresh Huginn with an empty data directory.
+// Usage: BASE=http://127.0.0.1:8080 node flows.js
+const { chromium } = require('playwright');
+const { start } = require('./site');
+const assert = require('assert');
+
+const BASE = process.env.BASE || 'http://127.0.0.1:8080';
+let passed = 0;
+
+async function step(name, fn) {
+  try {
+    await fn();
+    passed++;
+    console.log('PASS ' + name);
+  } catch (e) {
+    console.log('FAIL ' + name + '\n     ' + String(e.message).split('\n').join('\n     '));
+    process.exitCode = 1;
+    throw e;
+  }
+}
+
+const unreadOf = async (page, feed) => {
+  const row = page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: new RegExp('^' + feed) });
+  return Number((await row.locator('.count').innerText()).trim());
+};
+
+async function addFeed(page, address) {
+  await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: 'Add feed' }).click();
+  await page.getByLabel('Feed address').fill(address);
+  await page.getByRole('dialog').getByRole('button', { name: 'Add feed' }).click();
+}
+
+(async () => {
+  const site = await start();
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('dialog', (d) => d.accept());
+
+  try {
+    await step('first run: create the administrator', async () => {
+      await page.goto(BASE + '/');
+      await page.waitForURL('**/setup');
+      await page.getByLabel('Username').fill('demo');
+      await page.getByLabel('Password', { exact: true }).fill('demo-password-1');
+      await page.getByLabel('Confirm password').fill('demo-password-1');
+      await page.getByRole('button', { name: 'Create account' }).click();
+      await page.getByText('Add a feed to get started.').waitFor();
+    });
+
+    await step('adding something that is not a feed explains why', async () => {
+      await addFeed(page, site.url + '/notafeed.html');
+      await page.getByRole('dialog').getByRole('alert').waitFor();
+      assert.match(await page.getByRole('dialog').getByRole('alert').innerText(), /not an RSS, Atom or JSON feed/);
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+    });
+
+    await step("adding a site's home page finds its feed", async () => {
+      await addFeed(page, site.url + '/systems/');
+      await page.getByRole('heading', { name: 'Systems Weekly', level: 1 }).waitFor();
+      assert.strictEqual(await unreadOf(page, 'Systems Weekly'), 2);
+    });
+
+    await step('adding a feed twice is refused', async () => {
+      await addFeed(page, site.url + '/systems.atom');
+      await page.getByRole('dialog').getByText('You already follow that feed.').waitFor();
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+    });
+
+    await step('adding an RSS feed directly', async () => {
+      await addFeed(page, site.url + '/fieldnotes.xml');
+      await page.getByRole('heading', { name: 'Field Notes', level: 1 }).waitFor();
+      assert.strictEqual(await unreadOf(page, 'Field Notes'), 3);
+      assert.strictEqual(await unreadOf(page, 'All items'), 5);
+    });
+
+    await step('reading an article marks it read, and it can be marked unread again', async () => {
+      await page.getByRole('button', { name: /A week with only a paper calendar/ }).click();
+      await page.getByRole('heading', { name: 'A week with only a paper calendar', level: 2 }).waitFor();
+      assert.match(await page.locator('.content').innerText(), /What I noticed/);
+      await page.getByRole('button', { name: 'Mark unread' }).waitFor();
+      assert.strictEqual(await unreadOf(page, 'Field Notes'), 2);
+      await page.getByRole('button', { name: 'Mark unread' }).click();
+      await page.getByRole('button', { name: 'Mark read' }).waitFor();
+      assert.strictEqual(await unreadOf(page, 'Field Notes'), 3);
+    });
+
+    await step('"Unread only" hides what has been read', async () => {
+      await page.getByRole('button', { name: /Walking the long way/ }).click();
+      await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
+      await page.getByLabel('Unread only').check();
+      await page.waitForFunction(() => !document.body.innerText.includes('Walking the long way to the station') || document.querySelectorAll('.item').length === 2);
+      assert.strictEqual(await page.locator('.item').count(), 2);
+      await page.getByLabel('Unread only').uncheck();
+      await page.waitForFunction(() => document.querySelectorAll('.item').length === 3);
+    });
+
+    await step('"Mark all read" clears the counts for the feed', async () => {
+      await page.getByRole('button', { name: 'Mark all read' }).click();
+      await page.waitForFunction(() => [...document.querySelectorAll('.item .dot.unread')].length === 0);
+      assert.strictEqual(await unreadOf(page, 'Field Notes'), 0);
+      assert.strictEqual(await unreadOf(page, 'Systems Weekly'), 2);
+    });
+
+    await step('an article from a hostile feed cannot run code or show unsafe content', async () => {
+      await addFeed(page, site.url + '/hostile.xml');
+      await page.getByRole('button', { name: /Totally harmless post/ }).click();
+      await page.getByRole('heading', { name: 'Totally harmless post', level: 2 }).waitFor();
+      await page.waitForTimeout(500);
+      const html = await page.locator('.content').innerHTML();
+      for (const bad of ['<script', 'onclick', 'onerror', 'javascript:', '<iframe', '<style']) {
+        assert.ok(!html.toLowerCase().includes(bad), `content still has ${bad}: ${html}`);
+      }
+      assert.match(await page.locator('.content').innerText(), /Visible text/);
+      assert.strictEqual(await page.evaluate(() => window.__pwned), undefined, 'feed code ran');
+      const fine = page.locator('.content a', { hasText: 'a fine link' });
+      assert.strictEqual(await fine.getAttribute('target'), '_blank');
+      assert.match(await fine.getAttribute('rel'), /noopener/);
+      assert.strictEqual(await page.getByRole('link', { name: 'Open original' }).count(), 0, 'a javascript: link was offered');
+    });
+
+    await step('unfollowing a feed removes it and its articles', async () => {
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Hostile Feed/ }).click();
+      await page.getByRole('button', { name: 'Unfollow' }).click();
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
+      assert.strictEqual(await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Hostile Feed/ }).count(), 0);
+    });
+
+    await step('importing an OPML file adds its feeds once', async () => {
+      await page.goto(BASE + '/settings');
+      await page.getByRole('link', { name: '← Back to reading' }).waitFor();
+      const opml = await site.opml();
+      await page.locator('input[type=file]').setInputFiles({ name: 'subs.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
+      await page.getByText(/already followed 2/).waitFor();
+    });
+
+    await step('exporting gives an OPML file listing the feeds', async () => {
+      const body = await page.evaluate(() => fetch('/api/opml').then((r) => r.text()));
+      assert.ok(body.includes('/fieldnotes.xml') && body.includes('/systems.atom'), body);
+    });
+
+    await step('the dark theme sticks across a reload', async () => {
+      await page.getByLabel('Dark').check();
+      await page.reload();
+      assert.strictEqual(await page.evaluate(() => document.documentElement.getAttribute('data-theme')), 'dark');
+      await page.getByLabel('Follow the device').check();
+    });
+
+    await step('signing out and back in', async () => {
+      await page.goto(BASE + '/');
+      await page.getByRole('button', { name: 'Sign out' }).click();
+      await page.waitForURL('**/login');
+      await page.getByLabel('Username').fill('demo');
+      await page.getByLabel('Password', { exact: true }).fill('wrong-password');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.getByRole('alert').waitFor();
+      await page.getByLabel('Password', { exact: true }).fill('demo-password-1');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
+      await page.reload();
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
+    });
+
+    await step('an added user starts with a temporary password and sees none of the administrator\'s feeds', async () => {
+      await page.goto(BASE + '/settings');
+      await page.getByLabel('New username').fill('sam');
+      await page.getByRole('button', { name: 'Add user' }).click();
+      const temp = await page.getByLabel('Temporary password').inputValue();
+      assert.match(temp, /^[a-z0-9]{4}(-[a-z0-9]{4}){3}$/);
+      await page.getByRole('button', { name: 'Done' }).click();
+
+      const other = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+      const p2 = await other.newPage();
+      await p2.goto(BASE + '/');
+      await p2.getByLabel('Username').fill('sam');
+      await p2.getByLabel('Password', { exact: true }).fill(temp);
+      await p2.getByRole('button', { name: 'Sign in' }).click();
+      await p2.waitForURL('**/change-password');
+      await p2.getByLabel('Temporary password').fill(temp);
+      await p2.getByLabel('New password', { exact: true }).fill('sam-password-1');
+      await p2.getByLabel('Confirm new password').fill('sam-password-1');
+      await p2.getByRole('button', { name: /Change password|Save/ }).click();
+      await p2.getByText('Add a feed to get started.').waitFor();
+      await other.close();
+    });
+
+    await step('on a phone one pane shows at a time', async () => {
+      const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, storageState: await ctx.storageState() });
+      const p = await phone.newPage();
+      await p.goto(BASE + '/');
+      await p.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
+      assert.strictEqual(await p.getByRole('navigation', { name: 'Feeds' }).isVisible(), false);
+      await p.locator('.item').first().click();
+      await p.getByRole('button', { name: 'Back to articles' }).waitFor();
+      assert.strictEqual(await p.getByRole('region', { name: 'Articles' }).isVisible(), false);
+      await p.getByRole('button', { name: 'Back to articles' }).click();
+      await p.getByRole('button', { name: 'Show feeds' }).click();
+      await p.getByRole('navigation', { name: 'Feeds' }).waitFor();
+      await p.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Systems Weekly/ }).click();
+      await p.getByRole('heading', { name: 'Systems Weekly', level: 1 }).waitFor();
+      const overflow = await p.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+      assert.strictEqual(overflow, false, 'the page scrolls sideways on a phone');
+      await phone.close();
+    });
+
+    assert.deepStrictEqual(errors, [], 'the page threw errors');
+    console.log(`\n${passed} checks passed`);
+  } catch (e) {
+    console.log('\nStopped at the first failure.');
+    process.exitCode = 1;
+  } finally {
+    await browser.close();
+    site.close();
+  }
+})();

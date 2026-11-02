@@ -94,6 +94,12 @@ func (s *server) addFeed(w http.ResponseWriter, r *http.Request, user store.User
 	ctx, cancel := context.WithTimeout(r.Context(), addFeedTimeout)
 	defer cancel()
 	id, err := s.subscribe(ctx, user.ID, address)
+	if errors.Is(err, feed.ErrNotAFeed) {
+		// A web page rather than a feed: use the feed it advertises, if any.
+		if alt, derr := s.refresh.Fetcher.Discover(ctx, address); derr == nil && alt != "" && alt != address {
+			id, err = s.subscribe(ctx, user.ID, alt)
+		}
+	}
 	switch {
 	case errors.Is(err, store.ErrExists):
 		writeError(w, http.StatusConflict, "You already follow that feed.")

@@ -29,6 +29,9 @@ func feedSite(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/atom", func(w http.ResponseWriter, r *http.Request) { w.Write(read("atom.xml")) })
 	mux.HandleFunc("/json", func(w http.ResponseWriter, r *http.Request) { w.Write(read("feed.json")) })
 	mux.HandleFunc("/page", func(w http.ResponseWriter, r *http.Request) { w.Write(read("page.html")) })
+	mux.HandleFunc("/home", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html><head><link rel="alternate" type="application/atom+xml" href="/atom"></head><body>Home</body></html>`))
+	})
 	mux.HandleFunc("/gone", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "gone", http.StatusGone) })
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -138,6 +141,26 @@ func TestAddFeedRefusesBadAddresses(t *testing.T) {
 	mustStatus(t, b.do("POST", "/api/feeds", m{"url": site.URL + "/atom"}), 201)
 	r := b.do("POST", "/api/feeds", m{"url": site.URL + "/atom"})
 	mustStatus(t, r, 409)
+}
+
+func TestAddingASiteSubscribesToTheFeedItAdvertises(t *testing.T) {
+	e := newEnv(t)
+	site := feedSite(t)
+	b := e.browser()
+	mustStatus(t, b.setup("alex", "alex-password-1"), 201)
+
+	r := b.do("POST", "/api/feeds", m{"url": site.URL + "/home"})
+	mustStatus(t, r, 201)
+	f := r.obj("feed")
+	if f["title"] != "Example Atom" || f["url"] != site.URL+"/atom" {
+		t.Fatalf("feed = %v", f)
+	}
+	// The page itself is not left behind as a broken feed.
+	if feeds := b.do("GET", "/api/feeds", nil).list("feeds"); len(feeds) != 1 {
+		t.Fatalf("%d feeds, want 1", len(feeds))
+	}
+	// Adding the page again finds the same feed, which is already followed.
+	mustStatus(t, b.do("POST", "/api/feeds", m{"url": site.URL + "/home"}), 409)
 }
 
 func TestFeedsAndArticlesBelongToTheirUser(t *testing.T) {

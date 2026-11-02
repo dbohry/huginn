@@ -10,11 +10,11 @@
 </script>
 
 <!-- Three panes side by side on a wide screen; one at a time on a narrow one. -->
-<div class="app" data-pane={reader.pane}>
+<main class="app" data-pane={reader.pane}>
   <Sidebar />
   <ArticleList />
   <ArticlePane />
-</div>
+</main>
 
 <p class="sr-only" role="status" aria-live="polite">{reader.announcement}</p>
 

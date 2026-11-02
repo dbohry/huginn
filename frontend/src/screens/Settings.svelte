@@ -126,7 +126,7 @@
   const lastSeen = (u: UserSummary) => (u.lastSeenAt === null ? 'Never signed in' : `Last seen ${ago(u.lastSeenAt)} ago`);
 </script>
 
-<div class="page">
+<main class="page">
   <header>
     <a href="/" use:link class="back">← Back to reading</a>
     <h1>Settings</h1>
@@ -197,7 +197,7 @@
       </form>
     </section>
   {/if}
-</div>
+</main>
 
 {#if temp}
   <TempPasswordDialog username={temp.username} password={temp.password} created={temp.created} onclose={() => (temp = null)} />

@@ -49,13 +49,30 @@ func TestHTMLDropsTheBodyOfScriptAndStyleElements(t *testing.T) {
 	}
 }
 
+func TestHTMLShiftsHeadingsBelowTheTitle(t *testing.T) {
+	cases := map[string]string{
+		// The highest heading becomes h3 and the rest move with it, down to h6.
+		`<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6>`: `<h3>a</h3><h4>b</h4><h5>c</h5><h6>d</h6><h6>e</h6><h6>f</h6>`,
+		`<h2>a</h2><h3>b</h3><h2>c</h2>`:                               `<h3>a</h3><h4>b</h4><h3>c</h3>`,
+		`<h3>a</h3><h5>b</h5>`:                                         `<h3>a</h3><h5>b</h5>`,
+		`<h5>a</h5><h6>b</h6>`:                                         `<h3>a</h3><h4>b</h4>`,
+		`<p>no headings</p>`:                                           `<p>no headings</p>`,
+		`<p>text &lt;h1&gt; stays as text</p>`:                         `<p>text &lt;h1&gt; stays as text</p>`,
+	}
+	for in, want := range cases {
+		if got := HTML(in); got != want {
+			t.Errorf("HTML(%s)\n got  %s\n want %s", in, got, want)
+		}
+	}
+}
+
 func TestHTMLKeepsOrdinaryContent(t *testing.T) {
-	in := `<h2>Title</h2><p>Some <strong>bold</strong>, <em>italic</em> and <code>code</code>.</p>` +
+	in := `<h3>Title</h3><p>Some <strong>bold</strong>, <em>italic</em> and <code>code</code>.</p>` +
 		`<ul><li>one</li></ul><blockquote>quote</blockquote><pre>x</pre>` +
 		`<img src="https://example.com/pic.jpg" alt="A picture">` +
 		`<table><tr><td>cell</td></tr></table>`
 	out := HTML(in)
-	for _, want := range []string{"<h2>", "<strong>bold</strong>", "<em>italic</em>", "<code>code</code>",
+	for _, want := range []string{"<h3>", "<strong>bold</strong>", "<em>italic</em>", "<code>code</code>",
 		"<li>one</li>", "<blockquote>", "<pre>", `src="https://example.com/pic.jpg"`, `alt="A picture"`, "<td>cell</td>"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("lost %q:\n%s", want, out)

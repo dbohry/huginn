@@ -2,6 +2,11 @@
   import { ago } from '../lib/time';
   import { reader } from '../lib/reader.svelte';
 
+  async function unfollow() {
+    const feed = reader.currentFeed;
+    if (feed && confirm(`Stop following ${feed.title}? Its articles are deleted too.`)) await reader.removeFeed(feed.id);
+  }
+
   const emptyText = $derived(
     reader.unreadOnly ? 'Nothing unread. You are all caught up.' : reader.feeds.length === 0 ? 'Add a feed to get started.' : 'No articles yet.',
   );
@@ -25,6 +30,18 @@
     </label>
     <button class="small" onclick={() => reader.markAllRead()}>Mark all read</button>
   </div>
+
+  {#if reader.currentFeed}
+    <div class="feedbar">
+      {#if reader.currentFeed.error}
+        <p class="feederror">Could not be fetched: {reader.currentFeed.error}</p>
+      {/if}
+      <div class="feedlinks">
+        <a href={reader.currentFeed.siteUrl || reader.currentFeed.url} target="_blank" rel="noopener noreferrer">Visit site</a>
+        <button class="plain" onclick={unfollow}>Unfollow</button>
+      </div>
+    </div>
+  {/if}
 
   {#if reader.error}<p class="error" role="alert">{reader.error}</p>{/if}
 
@@ -141,6 +158,40 @@
   }
   .small:hover {
     background: var(--selected);
+  }
+  .feedbar {
+    padding: 4px 8px 4px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .feederror {
+    margin: 8px 0 4px;
+    font-size: 13px;
+    color: var(--bad);
+    overflow-wrap: anywhere;
+  }
+  .feedlinks {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .feedlinks a,
+  .plain {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 8px 0 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font-size: 13px;
+    text-decoration: none;
+  }
+  .plain {
+    padding: 0 0 0 8px;
+  }
+  .feedlinks a:hover,
+  .plain:hover {
+    text-decoration: underline;
   }
   ul {
     list-style: none;

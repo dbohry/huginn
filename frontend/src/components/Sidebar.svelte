@@ -4,6 +4,7 @@
   import { link } from '../lib/router.svelte';
   import { reader } from '../lib/reader.svelte';
   import { session } from '../lib/session.svelte';
+  import { ui } from '../lib/ui.svelte';
 
   let adding = $state(false);
 </script>
@@ -23,7 +24,7 @@
     </li>
   </ul>
 
-  <h2>Feeds</h2>
+  <svelte:element this={ui.narrow ? 'h1' : 'h2'} class="heading">Feeds</svelte:element>
   <ul class="feeds">
     {#each reader.feeds as feed (feed.id)}
       <li>
@@ -78,7 +79,7 @@
     margin: 0;
     padding: 0;
   }
-  h2 {
+  .heading {
     margin: 12px 0 4px;
     padding: 0 8px;
     font-size: 11px;

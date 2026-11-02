@@ -1,4 +1,4 @@
-.PHONY: help web build run dev test lint size image
+.PHONY: help web build run dev test lint size e2e image
 
 GO_PKGS := ./cmd/... ./internal/...
 VERSION ?= dev
@@ -11,6 +11,7 @@ help:
 	@echo "make test    run the Go tests"
 	@echo "make lint    gofmt, go vet and svelte-check"
 	@echo "make size    check the frontend bundle against its size budget"
+	@echo "make e2e     browser and accessibility checks (run make build first)"
 	@echo "make image   build the Docker image as huginn:dev"
 
 web:
@@ -38,6 +39,9 @@ lint:
 
 size:
 	cd frontend && npm run size
+
+e2e:
+	e2e/run.sh
 
 image:
 	docker build --build-arg VERSION=$(VERSION) -t huginn:dev .

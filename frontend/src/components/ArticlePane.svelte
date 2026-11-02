@@ -1,11 +1,12 @@
 <script lang="ts">
   import { reader } from '../lib/reader.svelte';
+  import { ui } from '../lib/ui.svelte';
   import { when } from '../lib/time';
 
   const item = $derived(reader.selected);
 </script>
 
-<main class="pane" aria-label="Article">
+<section class="pane" aria-label="Article">
   <header>
     <button class="icon mobile-only" aria-label="Back to articles" onclick={() => (reader.pane = 'list')}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
@@ -23,7 +24,9 @@
     <p class="placeholder" role="status">Loading…</p>
   {:else if item}
     <article>
-      <h2>{item.title}</h2>
+      <!-- On a phone this is the only pane on screen, so it needs the page heading too. -->
+      {#if ui.narrow}<h1 class="sr-only">Reading: {item.feedTitle}</h1>{/if}
+      <h2 class="headline">{item.title}</h2>
       <p class="byline">
         {item.feedTitle}{item.author ? ` · ${item.author}` : ''} · {when(item.publishedAt)}
       </p>
@@ -33,7 +36,7 @@
   {:else}
     <p class="placeholder">Select an article to read it.</p>
   {/if}
-</main>
+</section>
 
 <style>
   .pane {
@@ -89,7 +92,7 @@
     margin: 0 auto;
     padding: 40px 24px 80px;
   }
-  h2 {
+  .headline {
     margin: 0 0 8px;
     font-size: 30px;
     line-height: 1.2;
@@ -141,7 +144,7 @@
     article {
       padding: 24px 16px 64px;
     }
-    h2 {
+    .headline {
       font-size: 24px;
     }
   }

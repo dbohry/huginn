@@ -192,3 +192,48 @@ func TestValidateURL(t *testing.T) {
 		}
 	}
 }
+
+func TestDiscoverFindsTheAdvertisedFeed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/blog/":
+			w.Write([]byte(`<!doctype html><html><head><title>Blog</title>
+				<link rel="stylesheet" href="/s.css">
+				<link rel="alternate" type="text/html" href="/blog/fr/">
+				<link rel="alternate" type="application/atom+xml" title="Atom" href="../feeds/atom.xml">
+				<link rel="alternate" type="application/rss+xml" href="/rss">
+			</head><body><link rel="alternate" type="application/rss+xml" href="/too-late"></body></html>`))
+		case "/none":
+			w.Write([]byte(`<html><head><title>No feed</title></head><body>hi</body></html>`))
+		case "/redirect":
+			http.Redirect(w, r, "/blog/", http.StatusFound)
+		case "/js":
+			w.Write([]byte(`<html><head><link rel="alternate" type="application/rss+xml" href="javascript:alert(1)"></head></html>`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	f := newTestFetcher()
+	ctx := context.Background()
+
+	got, err := f.Discover(ctx, srv.URL+"/blog/")
+	if err != nil || got != srv.URL+"/feeds/atom.xml" {
+		t.Fatalf("first advertised feed, made absolute: %q, %v", got, err)
+	}
+	if got, err := f.Discover(ctx, srv.URL+"/redirect"); err != nil || got != srv.URL+"/feeds/atom.xml" {
+		t.Fatalf("after a redirect: %q, %v", got, err)
+	}
+	if got, err := f.Discover(ctx, srv.URL+"/none"); err != nil || got != "" {
+		t.Fatalf("page without a feed: %q, %v", got, err)
+	}
+	if got, _ := f.Discover(ctx, srv.URL+"/js"); got != "" {
+		t.Fatalf("a javascript: address must be ignored, got %q", got)
+	}
+	if _, err := f.Discover(ctx, srv.URL+"/missing"); err == nil {
+		t.Fatal("a 404 page should be an error")
+	}
+	if _, err := f.Discover(ctx, "ftp://example.com/"); err == nil {
+		t.Fatal("a non-web address should be refused")
+	}
+}

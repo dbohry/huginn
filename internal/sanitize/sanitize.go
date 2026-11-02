@@ -6,6 +6,7 @@ package sanitize
 
 import (
 	"html"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -32,8 +33,37 @@ func newArticlePolicy() *bluemonday.Policy {
 // HTML returns an allow-listed copy of feed HTML: ordinary text formatting,
 // lists, tables, links and images, and nothing that can run code, load a
 // frame, restyle the page or submit a form.
+//
+// Headings are shifted so they always rank below the article's own title: the
+// highest-ranking heading in the content becomes an h3, and the others move by
+// the same amount, down to h6.
 func HTML(s string) string {
-	return article.Sanitize(s)
+	return demoteHeadings(article.Sanitize(s))
+}
+
+// headingTag matches an opening or closing h1..h6 tag. It is only used on
+// sanitized output, where a literal "<" in text or in an attribute value is
+// always escaped, so a match is always a real tag.
+var headingTag = regexp.MustCompile(`</?h[1-6]\b`)
+
+func demoteHeadings(s string) string {
+	highest := 7
+	for _, tag := range headingTag.FindAllString(s, -1) {
+		if level := int(tag[len(tag)-1] - '0'); level < highest {
+			highest = level
+		}
+	}
+	if highest == 7 {
+		return s // no headings
+	}
+	shift := 3 - highest
+	return headingTag.ReplaceAllStringFunc(s, func(tag string) string {
+		level := int(tag[len(tag)-1]-'0') + shift
+		if level > 6 {
+			level = 6
+		}
+		return tag[:len(tag)-1] + string(rune('0'+level))
+	})
 }
 
 // Text returns the plain text of feed HTML: no tags, entities decoded and
