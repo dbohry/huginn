@@ -2,7 +2,7 @@
 
 # --- Frontend: build the Svelte app. Runs on the build machine's own
 # architecture, because its output is plain files that every target shares.
-FROM --platform=$BUILDPLATFORM node:22-alpine AS web
+FROM --platform=$BUILDPLATFORM node:26-alpine AS web
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
