@@ -86,8 +86,14 @@ after the MVP.
 - The HTML sanitizer was built with the API (milestone 4), because that is where article content first reaches a browser. Milestone 6 added the hostile-feed tests.
 - Backoff for failing feeds and one-fetch-per-host politeness were built with the fetcher (milestone 2).
 - Unfollowing a feed from the interface, showing a feed's last error, and shifting headings inside articles below the article title were added when the browser and accessibility checks showed they were needed.
-- The browser checks (`make e2e`) are not part of CI yet, as in Bifrost.
-- The Docker image could not be built while this was written (there was no Docker daemon in the environment), so CI's `image` job is its first real build.
+- The Docker image could not be built while the MVP was written (there was no Docker daemon in the environment). CI's `image` job built it the first time it ran, and it passed.
+
+## After the MVP
+
+- The browser and accessibility checks now run in CI, and CI also builds and starts the arm64 image.
+- `HUGINN_BLOCK_PRIVATE_NETWORKS=true` makes the fetcher refuse private-network addresses.
+- A Refresh button for a single feed, with the time it was last updated.
+- `reset-password` has tests.
 
 ## Main risks
 

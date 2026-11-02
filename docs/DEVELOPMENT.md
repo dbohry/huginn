@@ -30,6 +30,11 @@ Browser checks live in `e2e/` and need Chromium: run `npm install` in that direc
 
 ## CI and releases
 
-CI (`.github/workflows/ci.yml`) runs on every pull request: `gofmt`, `go vet` and the Go tests, the frontend type check, build and size budget, and a build of the Docker image that must report healthy. It can also be started by hand from the Actions tab. The browser checks (`make e2e`) are not in CI yet, so run them before opening a pull request that changes the interface.
+CI (`.github/workflows/ci.yml`) runs on every pull request, and can be started by hand from the Actions tab. It has four jobs:
+
+- **backend:** `gofmt`, `go vet` and the Go tests with the race detector.
+- **frontend:** the type check, the build and the size budget.
+- **e2e:** builds the binary and runs `make e2e` in Chromium, the journeys and the accessibility scan.
+- **image:** builds the Docker image and waits for the container to report healthy, then builds the arm64 image under QEMU and requests `/healthz` from it, so the Raspberry Pi build is checked before a release.
 
 The Release workflow (`.github/workflows/release.yml`) builds the image for amd64 and arm64 and publishes `dbohry/huginn:latest` (and `dbohry/huginn:main-<commit>`, to pin an exact build) to Docker Hub on every merge to main, except changes to docs only. It needs two repository secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (an access token with read and write rights). There is no automatic deploy and there are no version tags for now.
