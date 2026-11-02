@@ -1,0 +1,12 @@
+# Frontend
+frontend/node_modules/
+# Built frontend, embedded into the binary. The placeholder keeps the Go package compiling.
+internal/webui/dist/*
+!internal/webui/dist/.gitkeep
+
+# Local data and build output
+/data/
+/bin/
+*.db
+*.db-shm
+*.db-wal

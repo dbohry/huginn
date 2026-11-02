@@ -1,0 +1,44 @@
+name: CI
+
+# Pull requests run the lint and tests. A merge to main does not run them again,
+# because the pull request already did. Publishing the image is the Release
+# workflow's job.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l cmd internal)"
+          if [ -n "$unformatted" ]; then echo "$unformatted"; echo "gofmt: files above need formatting"; exit 1; fi
+      - run: go vet ./cmd/... ./internal/...
+      - run: go test -race ./cmd/... ./internal/...
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build the image and check that it reports healthy
+        run: |
+          docker build -t huginn:ci .
+          docker run -d --name huginn-ci huginn:ci
+          for i in $(seq 1 20); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' huginn-ci)"
+            [ "$status" = "healthy" ] && exit 0
+            sleep 2
+          done
+          docker logs huginn-ci
+          echo "container did not become healthy (last status: $status)"
+          exit 1

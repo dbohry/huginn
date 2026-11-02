@@ -1,0 +1,48 @@
+name: Release
+
+# Every merge to main builds the image for amd64 and arm64 and publishes it to
+# Docker Hub as dbohry/huginn:latest. It can also be started by hand. There is no
+# automatic deploy yet. Changes that cannot affect the image (docs) are skipped.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One publish at a time, and a newer merge waits instead of cancelling a running push.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      # Repository secrets: DOCKERHUB_USERNAME, and DOCKERHUB_TOKEN (an access token with
+      # read and write rights, made at hub.docker.com under Account settings > Personal access tokens).
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # The version shown in the app: the commit this image was built from.
+      - run: echo "VERSION=main-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            dbohry/huginn:latest
+            dbohry/huginn:${{ env.VERSION }}
+          build-args: VERSION=${{ env.VERSION }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
