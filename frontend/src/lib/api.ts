@@ -1,0 +1,146 @@
+export type User = {
+  id: number;
+  username: string;
+  isAdmin: boolean;
+  mustChangePassword: boolean;
+};
+
+/** A subscribed feed. `title` falls back to the site's host. */
+export type Feed = {
+  id: number;
+  url: string;
+  title: string;
+  siteUrl: string;
+  unread: number;
+  /** Unix seconds, or null if the feed has not been fetched yet. */
+  lastFetchedAt: number | null;
+  /** The last fetch error, or "" when the last fetch worked. */
+  error: string;
+};
+
+/** An article in a list. */
+export type Item = {
+  id: number;
+  feedId: number;
+  feedTitle: string;
+  title: string;
+  /** The address of the original article, or "" if the feed gave none. */
+  url: string;
+  author: string;
+  /** Unix seconds. */
+  publishedAt: number;
+  /** Plain text, cut short. */
+  snippet: string;
+  unread: boolean;
+};
+
+/** An article opened for reading. `content` is sanitized HTML. */
+export type ItemDetail = Item & { content: string };
+
+/** A row on the Users screen. */
+export type UserSummary = {
+  id: number;
+  username: string;
+  isAdmin: boolean;
+  mustChangePassword: boolean;
+  /** Unix seconds, or null if the user has never signed in. */
+  lastSeenAt: number | null;
+};
+
+export type ImportResult = { added: number; existing: number; invalid: number };
+
+/** An error response from the server. `message` is safe to show to the user. */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+    readonly code?: string,
+  ) {
+    super(message);
+  }
+}
+
+let onUnauthorized: () => void = () => {};
+
+/** Called when a request finds that the session is gone (expired or signed out elsewhere). */
+export function setUnauthorizedHandler(fn: () => void) {
+  onUnauthorized = fn;
+}
+
+// Sign-in, setup and the first "who am I" check expect to be told "not signed in".
+const expectsUnauthorized = (path: string) =>
+  path === '/api/me' || path === '/api/login' || path === '/api/setup';
+
+type Body = { json: unknown } | { xml: string };
+
+async function request<T>(method: string, path: string, body?: Body): Promise<T> {
+  let init: RequestInit = { method, credentials: 'same-origin' };
+  if (body && 'json' in body) {
+    init = { ...init, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body.json) };
+  } else if (body) {
+    init = { ...init, headers: { 'Content-Type': 'text/xml' }, body: body.xml };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(path, init);
+  } catch {
+    throw new ApiError(0, 'Cannot reach the server.');
+  }
+
+  if (res.status === 204) return undefined as T;
+
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && !expectsUnauthorized(path)) onUnauthorized();
+  if (!res.ok) {
+    throw new ApiError(res.status, data.error ?? 'Something went wrong.', data.code);
+  }
+  return data as T;
+}
+
+const json = (value: unknown): Body => ({ json: value });
+
+export type ItemQuery = { feedId?: number | null; unreadOnly?: boolean; after?: string; limit?: number };
+
+export const api = {
+  health: () => request<{ status: string; version: string }>('GET', '/healthz'),
+  setupStatus: () => request<{ needsSetup: boolean }>('GET', '/api/setup/status'),
+  setup: (username: string, password: string) =>
+    request<{ user: User }>('POST', '/api/setup', json({ username, password })),
+  login: (username: string, password: string, remember: boolean) =>
+    request<{ user: User }>('POST', '/api/login', json({ username, password, remember })),
+  logout: () => request<void>('POST', '/api/logout'),
+  me: () => request<{ user: User }>('GET', '/api/me'),
+  changePassword: (current: string, next: string) =>
+    request<void>('POST', '/api/me/password', json({ current, new: next })),
+
+  users: () => request<{ users: UserSummary[] }>('GET', '/api/users'),
+  createUser: (username: string, isAdmin: boolean) =>
+    request<{ user: UserSummary; temporaryPassword: string }>('POST', '/api/users', json({ username, isAdmin })),
+  resetUserPassword: (id: number) =>
+    request<{ temporaryPassword: string }>('POST', `/api/users/${id}/reset-password`),
+  deleteUser: (id: number) => request<void>('DELETE', `/api/users/${id}`),
+
+  feeds: () => request<{ feeds: Feed[] }>('GET', '/api/feeds'),
+  addFeed: (url: string) => request<{ feed: Feed }>('POST', '/api/feeds', json({ url })),
+  deleteFeed: (id: number) => request<void>('DELETE', `/api/feeds/${id}`),
+  refreshFeed: (id: number) => request<void>('POST', `/api/feeds/${id}/refresh`),
+  /** Starts fetching every feed in the background. */
+  refreshAll: () => request<{ feeds: number }>('POST', '/api/refresh'),
+
+  items: (q: ItemQuery = {}) => {
+    const p = new URLSearchParams();
+    if (q.feedId) p.set('feed', String(q.feedId));
+    if (q.unreadOnly) p.set('unread', '1');
+    if (q.after) p.set('after', q.after);
+    if (q.limit) p.set('limit', String(q.limit));
+    const qs = p.toString();
+    return request<{ items: Item[]; next: string }>('GET', `/api/items${qs ? `?${qs}` : ''}`);
+  },
+  item: (id: number) => request<{ item: ItemDetail }>('GET', `/api/items/${id}`),
+  setRead: (id: number, read: boolean) => request<void>('PUT', `/api/items/${id}/read`, json({ read })),
+  readAll: (feedId?: number | null) =>
+    request<{ marked: number }>('POST', '/api/read-all', json(feedId ? { feedId } : {})),
+
+  importOpml: (xml: string) => request<ImportResult>('POST', '/api/opml', { xml }),
+};

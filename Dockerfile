@@ -1,14 +1,23 @@
 # syntax=docker/dockerfile:1
 
+# --- Frontend: build the Svelte app. Runs on the build machine's own
+# architecture, because its output is plain files that every target shares.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS web
+WORKDIR /src/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+# Vite writes to ../internal/webui/dist, which is /src/internal/webui/dist here.
+RUN npm run build && npm run size
+
 # --- Backend: cross-compile the Go binary for the target architecture.
-# A frontend stage that builds the Svelte app into internal/webui/dist is added
-# with the interface milestone.
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
+COPY --from=web /src/internal/webui/dist ./internal/webui/dist
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev

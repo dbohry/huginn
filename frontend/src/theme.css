@@ -1,0 +1,141 @@
+/* Colour tokens. Components never use raw colours, only these.
+   Light is the default; dark follows the device unless a choice is saved
+   (data-theme on <html>, set by lib/appearance). */
+:root {
+  --bg: #ffffff;
+  --surface: #f6f6f4;
+  --border: #dcdcd7;
+  --text: #1b1b1a;
+  --muted: #62625e;
+  --accent: #2457d6;
+  --on-accent: #ffffff;
+  --selected: #e9eefc;
+  --bad: #b42318;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #141414;
+  --surface: #1b1b1b;
+  --border: #333330;
+  --text: #ececea;
+  --muted: #a3a39e;
+  --accent: #8aa9ff;
+  --on-accent: #0e1422;
+  --selected: #222b45;
+  --bad: #ff8a80;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #141414;
+    --surface: #1b1b1b;
+    --border: #333330;
+    --text: #ececea;
+    --muted: #a3a39e;
+    --accent: #8aa9ff;
+    --on-accent: #0e1422;
+    --selected: #222b45;
+    --bad: #ff8a80;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Shared form and button styles, used by the sign-in and settings screens. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.button.secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.button.danger {
+  background: transparent;
+  color: var(--bad);
+  border: 1px solid var(--bad);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
