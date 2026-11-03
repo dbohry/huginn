@@ -2,6 +2,7 @@
   import Field from '../components/Field.svelte';
   import Logo from '../components/Logo.svelte';
   import StarterAdmin from '../components/StarterAdmin.svelte';
+  import StarterDialog from '../components/StarterDialog.svelte';
   import TempPasswordDialog from '../components/TempPasswordDialog.svelte';
   import { api, ApiError, type UserSummary } from '../lib/api';
   import { appearance, type Mode } from '../lib/appearance.svelte';
@@ -11,6 +12,8 @@
   import { since } from '../lib/time';
 
   const messageOf = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong.');
+
+  let starterOpen = $state(false);
 
   // --- account ---
   let current = $state('');
@@ -218,6 +221,7 @@
         Import OPML
         <input type="file" accept=".opml,.xml,text/xml,application/xml,text/x-opml" onchange={importFile} />
       </label>
+      <button class="button secondary" onclick={() => (starterOpen = true)}>Browse starter feeds</button>
     </div>
     {#if importMessage}<p class="ok" role="status">{importMessage}</p>{/if}
     {#if importError}<p class="error" role="alert">{importError}</p>{/if}
@@ -273,6 +277,8 @@
     </div>
   </section>
 </main>
+
+{#if starterOpen}<StarterDialog onclose={() => (starterOpen = false)} />{/if}
 
 {#if temp}
   <TempPasswordDialog username={temp.username} password={temp.password} created={temp.created} onclose={() => (temp = null)} />

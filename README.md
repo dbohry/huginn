@@ -19,7 +19,7 @@
 - **Reads RSS, Atom and JSON Feed.** Paste a feed's address, or just a site's address and Huginn finds its feed.
 - **Three panes on a desktop, one at a time on a phone.** Feeds, articles and the reader.
 - **Unread counts, read and unread, "unread only" and "mark all read".**
-- **Starter feeds.** A new account is offered a list of well-known feeds by topic (technology, science, world news, fashion and more) at its first sign-in, so the reader is not empty. It can be reopened any time from the sidebar. The administrator edits the list in Settings.
+- **Starter feeds.** A new account is offered a list of well-known feeds by topic (technology, science, world news, fashion and more) at its first sign-in, so the reader is not empty. It can be reopened any time from Settings. The administrator edits the list in Settings.
 - **Topics.** Feeds can be filed under a topic, and the feed list grouped by it.
 - **Import and export OPML**, the format every feed reader understands. Folders become topics.
 - **Several users.** Each has their own feeds and read state. The first account is the administrator and adds the others.
