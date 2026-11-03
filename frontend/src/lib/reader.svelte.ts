@@ -324,6 +324,23 @@ class Reader {
     }
   }
 
+  /** Drops the open article's full text and goes back to what the feed gave. */
+  async unloadFull() {
+    const current = this.selected;
+    if (!current || !current.fullText || this.loadingFull) return;
+    const id = current.id;
+    const token = this.itemToken;
+    try {
+      const { item: detail } = await api.unloadFullText(id);
+      if (token === this.itemToken && this.selected?.id === id) {
+        this.selected = { ...detail, unread: this.selected.unread };
+        this.announcement = 'Back to the feed’s version of the article';
+      }
+    } catch (e) {
+      if (this.selected?.id === id) this.notify(message(e), 'error');
+    }
+  }
+
   /** Turns loading full articles automatically on or off for a feed. */
   async setFeedFullText(id: number, on: boolean) {
     const feed = this.feeds.find((f) => f.id === id);

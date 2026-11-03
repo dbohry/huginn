@@ -197,6 +197,28 @@ func (s *server) loadFullText(w http.ResponseWriter, r *http.Request, user store
 	writeJSON(w, http.StatusOK, map[string]itemDetailJSON{"item": detailJSON(it)})
 }
 
+// unloadFullText forgets the full article kept for an article, so it shows what the
+// feed gave again. Loading it again fetches the page again.
+func (s *server) unloadFullText(w http.ResponseWriter, r *http.Request, user store.User, _ store.Session) {
+	id, ok := pathID(w, r, "Article not found.")
+	if !ok {
+		return
+	}
+	if err := s.store.SaveFullText(r.Context(), user.ID, id, ""); errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Article not found.")
+		return
+	} else if err != nil {
+		serverError(w, err)
+		return
+	}
+	it, err := s.store.GetItem(r.Context(), user.ID, id)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]itemDetailJSON{"item": detailJSON(it)})
+}
+
 // fetchArticle downloads a page and returns the article HTML found in it.
 func (s *server) fetchArticle(ctx context.Context, link, title string) (string, error) {
 	page, finalURL, err := s.refresh.Fetcher.FetchPage(ctx, link)

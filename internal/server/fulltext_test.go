@@ -143,6 +143,34 @@ func TestLoadingTheFullArticleKeepsItAndFetchesOnce(t *testing.T) {
 	}
 }
 
+func TestUnloadingTheFullArticleBringsBackTheFeedsVersion(t *testing.T) {
+	e := newEnv(t)
+	site, hits := articleSite(t)
+	b := e.browser()
+	mustStatus(t, b.setup("alex", "alex-password-1"), 201)
+	fid := newFeed(t, e, 1, "https://example.com/feed")
+	id := seedArticle(t, e, fid, "one", site.URL+"/article", "Just a teaser from the feed.", "")
+
+	mustStatus(t, b.do("POST", "/api/items/"+id+"/full", nil), 200)
+	r := b.do("DELETE", "/api/items/"+id+"/full", nil)
+	mustStatus(t, r, 200)
+	item := r.obj("item")
+	if item["fullText"] != false || !strings.Contains(item["content"].(string), "Just a teaser") {
+		t.Errorf("after unloading: fullText = %v, content = %v", item["fullText"], item["content"])
+	}
+	again := b.do("GET", "/api/items/"+id, nil).obj("item")
+	if again["fullText"] != false {
+		t.Errorf("the full article came back when opened: %v", again["fullText"])
+	}
+	// Loading it again fetches the page again.
+	mustStatus(t, b.do("POST", "/api/items/"+id+"/full", nil), 200)
+	if hits.Load() != 2 {
+		t.Errorf("the page was fetched %d times, want twice", hits.Load())
+	}
+	mustStatus(t, b.do("DELETE", "/api/items/999999/full", nil), 404)
+	mustStatus(t, e.browser().do("DELETE", "/api/items/"+id+"/full", nil), 401)
+}
+
 func TestLoadingTheFullArticleExplainsFailures(t *testing.T) {
 	e := newEnv(t)
 	site, _ := articleSite(t)
