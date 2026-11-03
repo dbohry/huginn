@@ -285,3 +285,81 @@ func TestBlockPrivateNetworks(t *testing.T) {
 		t.Fatalf("a redirect to a local address should be refused, got %v", err)
 	}
 }
+
+func TestFetchPage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/page":
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte("<html><body>Hello café</body></html>"))
+		case "/latin1":
+			// "café" in ISO-8859-1: the é is the single byte 0xE9, which is not valid UTF-8.
+			w.Header().Set("Content-Type", "text/html; charset=iso-8859-1")
+			w.Write([]byte("<html><body>caf\xe9</body></html>"))
+		case "/go":
+			http.Redirect(w, r, "/dir/final", http.StatusFound)
+		case "/dir/final":
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte("<html><body>arrived</body></html>"))
+		case "/pdf":
+			w.Header().Set("Content-Type", "application/pdf")
+			w.Write([]byte("%PDF-1.4"))
+		case "/json":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("{}"))
+		case "/big":
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(strings.Repeat("x", 4096)))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	ctx := context.Background()
+	read := func(r interface{ Read([]byte) (int, error) }) string {
+		var sb strings.Builder
+		buf := make([]byte, 512)
+		for {
+			n, err := r.Read(buf)
+			sb.Write(buf[:n])
+			if err != nil {
+				return sb.String()
+			}
+		}
+	}
+
+	f := newTestFetcher()
+	body, final, err := f.FetchPage(ctx, srv.URL+"/page")
+	if err != nil || !strings.Contains(read(body), "café") || final.Path != "/page" {
+		t.Fatalf("a plain page: %v", err)
+	}
+	if body, _, err = f.FetchPage(ctx, srv.URL+"/latin1"); err != nil || !strings.Contains(read(body), "café") {
+		t.Fatalf("an ISO-8859-1 page should be converted to UTF-8: %v", err)
+	}
+	if _, final, err = f.FetchPage(ctx, srv.URL+"/go"); err != nil || final.Path != "/dir/final" {
+		t.Fatalf("a redirect should report where the page ended up: %v, %v", final, err)
+	}
+	for _, path := range []string{"/pdf", "/json"} {
+		if _, _, err := f.FetchPage(ctx, srv.URL+path); !errors.Is(err, ErrNotHTML) {
+			t.Errorf("%s: err = %v, want ErrNotHTML", path, err)
+		}
+	}
+	var status *StatusError
+	if _, _, err := f.FetchPage(ctx, srv.URL+"/missing"); !errors.As(err, &status) {
+		t.Errorf("a 404 should be a StatusError, got %v", err)
+	}
+	if _, _, err := f.FetchPage(ctx, "ftp://example.com/x"); err == nil {
+		t.Error("a non-web address should be refused")
+	}
+	small := newTestFetcher()
+	small.MaxBytes = 1024
+	if _, _, err := small.FetchPage(ctx, srv.URL+"/big"); !errors.Is(err, ErrTooLarge) {
+		t.Errorf("an oversize page: err = %v, want ErrTooLarge", err)
+	}
+
+	blocked := newTestFetcher()
+	blocked.BlockPrivateNetworks()
+	if _, _, err := blocked.FetchPage(ctx, srv.URL+"/page"); !errors.Is(err, ErrPrivateAddress) {
+		t.Errorf("a page on a private network, with blocking on: err = %v", err)
+	}
+}

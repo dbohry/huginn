@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dbohry/huginn/internal/article"
 	"github.com/dbohry/huginn/internal/sanitize"
 	"github.com/dbohry/huginn/internal/store"
 )
@@ -16,6 +18,13 @@ const (
 	defaultPageSize = 50
 	maxPageSize     = 100
 	snippetLength   = 220
+
+	// summaryOnlyLimit is the longest summary, in characters, that still looks like a
+	// teaser rather than the article, for a feed that gives nothing else.
+	summaryOnlyLimit = 600
+	// loadArticleTimeout bounds fetching and reading one page. It is shorter than the
+	// server's write timeout.
+	loadArticleTimeout = 25 * time.Second
 )
 
 // itemJSON is an article in a list.
@@ -38,6 +47,32 @@ type itemDetailJSON struct {
 	itemJSON
 	// Content is sanitized HTML, safe to insert into the page.
 	Content string `json:"content"`
+	// FullText is true when Content is the full article loaded from its own page, not
+	// what the feed gave.
+	FullText bool `json:"fullText"`
+	// SummaryOnly is true when the feed gave nothing but a short summary, so the full
+	// article is only on the site.
+	SummaryOnly bool `json:"summaryOnly"`
+}
+
+// detailJSON prepares an article for reading: the full article if one has been
+// loaded, else the feed's content, else its summary.
+func detailJSON(it store.Item) itemDetailJSON {
+	body := it.FullHTML
+	if strings.TrimSpace(body) == "" {
+		body = it.ContentHTML
+	}
+	if strings.TrimSpace(body) == "" {
+		body = it.Summary
+	}
+	haveFull := strings.TrimSpace(it.FullHTML) != ""
+	feedGaveContent := strings.TrimSpace(it.ContentHTML) != ""
+	return itemDetailJSON{
+		itemJSON:    toItemJSON(it),
+		Content:     sanitize.HTML(body),
+		FullText:    haveFull,
+		SummaryOnly: !haveFull && !feedGaveContent && len([]rune(sanitize.Text(it.Summary))) < summaryOnlyLimit,
+	}
 }
 
 func toItemJSON(it store.Item) itemJSON {
@@ -124,11 +159,83 @@ func (s *server) getItem(w http.ResponseWriter, r *http.Request, user store.User
 		return
 	}
 
-	body := it.ContentHTML
-	if strings.TrimSpace(body) == "" {
-		body = it.Summary
+	writeJSON(w, http.StatusOK, map[string]itemDetailJSON{"item": detailJSON(it)})
+}
+
+// loadFullText fetches the article's own page, finds the article in it and keeps
+// it, so the page is fetched only once. Asking again returns what was kept.
+func (s *server) loadFullText(w http.ResponseWriter, r *http.Request, user store.User, _ store.Session) {
+	id, ok := pathID(w, r, "Article not found.")
+	if !ok {
+		return
 	}
-	writeJSON(w, http.StatusOK, map[string]itemDetailJSON{"item": {itemJSON: toItemJSON(it), Content: sanitize.HTML(body)}})
+	it, err := s.store.GetItem(r.Context(), user.ID, id)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "Article not found.")
+		return
+	}
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+
+	if strings.TrimSpace(it.FullHTML) == "" {
+		link := safeLink(it.URL)
+		if link == "" {
+			writeError(w, http.StatusUnprocessableEntity, "This article has no web address to load it from.")
+			return
+		}
+		if !s.allowExtract(w, user.ID) {
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), loadArticleTimeout)
+		defer cancel()
+		html, err := s.fetchArticle(ctx, link, it.Title)
+		if err != nil {
+			s.articleFailed(w, err)
+			return
+		}
+		if err := s.store.SaveFullText(r.Context(), user.ID, id, html); err != nil {
+			serverError(w, err)
+			return
+		}
+		it.FullHTML = html
+	}
+	writeJSON(w, http.StatusOK, map[string]itemDetailJSON{"item": detailJSON(it)})
+}
+
+// fetchArticle downloads a page and returns the article HTML found in it.
+func (s *server) fetchArticle(ctx context.Context, link, title string) (string, error) {
+	page, finalURL, err := s.refresh.Fetcher.FetchPage(ctx, link)
+	if err != nil {
+		return "", err
+	}
+	found, err := article.Extract(page, finalURL, title)
+	if err != nil {
+		return "", err
+	}
+	return found.ContentHTML, nil
+}
+
+func (s *server) articleFailed(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, article.ErrNoArticle):
+		writeError(w, http.StatusUnprocessableEntity, "Could not load the full article. Huginn could not find the article text on that page.")
+	case isFetchProblem(err):
+		writeError(w, http.StatusUnprocessableEntity, "Could not load the full article. "+fetchMessage(err))
+	default:
+		serverError(w, err)
+	}
+}
+
+func (s *server) allowExtract(w http.ResponseWriter, userID int64) bool {
+	key := strconv.FormatInt(userID, 10)
+	if ok, retry := s.extractByUser.Allow(key); !ok {
+		tooManyAttempts(w, retry)
+		return false
+	}
+	s.extractByUser.Fail(key)
+	return true
 }
 
 func (s *server) setRead(w http.ResponseWriter, r *http.Request, user store.User, _ store.Session) {

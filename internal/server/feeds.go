@@ -29,10 +29,12 @@ type feedJSON struct {
 	LastFetchedAt *int64 `json:"lastFetchedAt"`
 	// Error is the last fetch error, or empty when the last fetch worked.
 	Error string `json:"error"`
+	// FullText is true when full articles are loaded automatically as they are opened.
+	FullText bool `json:"fullText"`
 }
 
 func toFeedJSON(f store.FeedSummary) feedJSON {
-	out := feedJSON{ID: f.ID, URL: f.URL, Title: feedName(f.Title, f.URL), SiteURL: f.SiteURL, Unread: f.Unread, Error: f.LastError}
+	out := feedJSON{ID: f.ID, URL: f.URL, Title: feedName(f.Title, f.URL), SiteURL: f.SiteURL, Unread: f.Unread, Error: f.LastError, FullText: f.FullText}
 	if f.LastFetchedAt != nil {
 		t := f.LastFetchedAt.Unix()
 		out.LastFetchedAt = &t
@@ -244,7 +246,7 @@ func isFetchProblem(err error) bool {
 	var status *feed.StatusError
 	var netErr net.Error
 	var urlErr *url.Error
-	return errors.Is(err, feed.ErrNotAFeed) || errors.Is(err, feed.ErrTooLarge) || errors.Is(err, feed.ErrPrivateAddress) ||
+	return errors.Is(err, feed.ErrNotAFeed) || errors.Is(err, feed.ErrNotHTML) || errors.Is(err, feed.ErrTooLarge) || errors.Is(err, feed.ErrPrivateAddress) ||
 		errors.Is(err, context.DeadlineExceeded) ||
 		errors.As(err, &status) || errors.As(err, &netErr) || errors.As(err, &urlErr)
 }
@@ -256,8 +258,10 @@ func fetchMessage(err error) string {
 	switch {
 	case errors.Is(err, feed.ErrNotAFeed):
 		return "That address is not an RSS, Atom or JSON feed."
+	case errors.Is(err, feed.ErrNotHTML):
+		return "That address is not a web page Huginn can read."
 	case errors.Is(err, feed.ErrTooLarge):
-		return "That feed is too large."
+		return "That is too large to load."
 	case errors.Is(err, feed.ErrPrivateAddress):
 		return "That address is on a private network, which this Huginn does not fetch from."
 	case errors.As(err, &status):
@@ -276,4 +280,36 @@ func pathID(w http.ResponseWriter, r *http.Request, notFound string) (int64, boo
 		return 0, false
 	}
 	return id, true
+}
+
+// updateFeed changes a setting of one of the user's feeds.
+func (s *server) updateFeed(w http.ResponseWriter, r *http.Request, user store.User, _ store.Session) {
+	id, ok := pathID(w, r, "Feed not found.")
+	if !ok {
+		return
+	}
+	var in struct {
+		FullText *bool `json:"fullText"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	if in.FullText == nil {
+		writeError(w, http.StatusBadRequest, "There is nothing to change.")
+		return
+	}
+	switch err := s.store.SetFeedFullText(r.Context(), user.ID, id, *in.FullText); {
+	case errors.Is(err, store.ErrNotFound):
+		writeError(w, http.StatusNotFound, "Feed not found.")
+		return
+	case err != nil:
+		serverError(w, err)
+		return
+	}
+	f, err := s.feedSummary(r.Context(), user.ID, id)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]feedJSON{"feed": toFeedJSON(f)})
 }

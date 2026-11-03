@@ -55,6 +55,24 @@ const gardens = [
     summary: 'Broad beans, garlic and a last row of lettuce under a cloche.',
     body: '<p>Garlic wants a cold spell, so get it in the ground now.</p>' },
 ];
+// A feed that gives only a short summary of each story, whose full text is on the story's own page.
+// Story N is on /story/N; the last item points at a page that does not exist.
+const stories = Array.from({ length: 8 }, (_, i) => ({
+  n: i + 1,
+  id: 's' + (i + 1),
+  title: `Summary story ${i + 1}`,
+  date: new Date(Date.UTC(2026, 10, 2, 20 - (i + 1), 0, 0)).toUTCString(),
+  summary: `A two sentence teaser for story ${i + 1}. The rest is on the site.`,
+}));
+const storyPage = (n, base) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Story ${n} | Example Site</title></head><body>
+<header><nav><a href="/">Home</a> <a href="/news">News</a></nav></header>
+<main><article><h1>Summary story ${n}</h1>
+<p>The full text of story ${n} begins here, and it runs for long enough that a reader would want the whole thing and not just the teaser that the feed offers on its own.</p>
+<p>A second paragraph carries on with more detail about story ${n}, including the kind of background and quotes that never fit into a two sentence summary in a feed.</p>
+<p>A third paragraph finishes the full text of story ${n}, with a link to <a href="/story/${n}/more">further reading</a> and a closing thought for the reader to take away.</p>
+</article><aside><h2>Subscribe</h2><p>Sign up for our newsletter.</p></aside></main>
+<footer><p>Copyright Example Site</p></footer></body></html>`;
+
 // A long feed, for checking that a long list scrolls inside its pane and not the page.
 const many = Array.from({ length: 120 }, (_, i) => ({
   id: 'm' + i, title: `Long list article ${i}: a headline long enough to wrap onto a second line`, link: 'https://example.com/m' + i,
@@ -76,16 +94,24 @@ function start(port = 0) {
   const server = http.createServer((req, res) => {
     const send = (type, body) => { res.writeHead(200, { 'Content-Type': type }); res.end(body); };
     const base = `http://127.0.0.1:${server.address().port}`;
+    const story = /^\/story\/(\d+)$/.exec(req.url);
+    if (story) return send('text/html; charset=utf-8', storyPage(Number(story[1]), base));
     switch (req.url) {
       case '/fieldnotes.xml': return send('application/rss+xml', rss('Field Notes', base + '/fieldnotes/', fieldNotes));
       case '/flaky.xml': // works once, then fails
         if (++flakyHits > 1) { res.writeHead(500); return res.end('down'); }
         return send('application/rss+xml', rss('Flaky Feed', base + '/flaky/', [{ id: 'f1', title: 'Only article', link: 'https://example.com/f1', date: 'Mon, 02 Nov 2026 05:00:00 +0000', summary: 'It worked once.', body: '<p>It worked once.</p>' }]));
       case '/many.xml': return send('application/rss+xml', rss('Long Feed', base + '/many/', many));
+      case '/summaryonly.xml': {
+        const items = stories.map((x) => ({ id: x.id, title: x.title, link: `${base}/story/${x.n}`, date: x.date, summary: x.summary, body: '' }));
+        items.push({ id: 'broken', title: 'Broken link story', link: `${base}/story/missing`, date: 'Mon, 02 Nov 2026 05:00:00 +0000', summary: 'A teaser whose page is gone.', body: '' });
+        return send('application/rss+xml', rss('Summary Only Feed', base + '/summaryonly/', items));
+      }
       case '/gardens.xml': return send('application/rss+xml', rss('Tiny Gardens', base + '/gardens/', gardens));
       case '/systems.atom': return send('application/atom+xml', atom('Systems Weekly', base + '/systems/', systems));
       case '/systems/': return send('text/html', `<!doctype html><html><head><title>Systems Weekly</title><link rel="alternate" type="application/atom+xml" href="/systems.atom"></head><body>Home</body></html>`);
       case '/hostile.xml': return send('application/rss+xml', rss('Hostile Feed', base + '/hostile/', hostile));
+      case '/story/missing': res.writeHead(404); return res.end('not found');
       case '/notafeed.html': return send('text/html', '<html><body>nothing here</body></html>');
       case '/subscriptions.opml': return send('text/x-opml', `<?xml version="1.0"?><opml version="2.0"><head/><body>
         <outline type="rss" text="Field Notes" xmlUrl="${base}/fieldnotes.xml"/>

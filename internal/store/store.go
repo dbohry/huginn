@@ -43,9 +43,11 @@ type Feed struct {
 	LastError     string
 	ErrorCount    int
 	NextFetchAt   *time.Time
+	// FullText loads the full article automatically when one of the feed's articles is opened.
+	FullText bool
 }
 
-const feedColumns = `id, user_id, url, title, site_url, etag, last_modified, last_fetched_at, last_error, error_count, next_fetch_at`
+const feedColumns = `id, user_id, url, title, site_url, etag, last_modified, last_fetched_at, last_error, error_count, next_fetch_at, full_text`
 
 type scanner interface{ Scan(dest ...any) error }
 
@@ -53,7 +55,7 @@ func scanFeed(row scanner) (Feed, error) {
 	var f Feed
 	var fetched, next sql.NullString
 	err := row.Scan(&f.ID, &f.UserID, &f.URL, &f.Title, &f.SiteURL, &f.ETag, &f.LastModified,
-		&fetched, &f.LastError, &f.ErrorCount, &next)
+		&fetched, &f.LastError, &f.ErrorCount, &next, &f.FullText)
 	if err != nil {
 		return Feed{}, err
 	}
@@ -194,7 +196,7 @@ type FeedSummary struct {
 // ListFeeds returns one user's feeds, sorted by title, with unread counts.
 func (s *Store) ListFeeds(ctx context.Context, userID int64) ([]FeedSummary, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT f.id, f.user_id, f.url, f.title, f.site_url, f.etag,
-			f.last_modified, f.last_fetched_at, f.last_error, f.error_count, f.next_fetch_at,
+			f.last_modified, f.last_fetched_at, f.last_error, f.error_count, f.next_fetch_at, f.full_text,
 			COALESCE(SUM(CASE WHEN i.is_read = 0 THEN 1 ELSE 0 END), 0)
 		FROM feeds f LEFT JOIN items i ON i.feed_id = f.id
 		WHERE f.user_id = ?
@@ -210,7 +212,7 @@ func (s *Store) ListFeeds(ctx context.Context, userID int64) ([]FeedSummary, err
 		var fs FeedSummary
 		var fetched, next sql.NullString
 		if err := rows.Scan(&fs.ID, &fs.UserID, &fs.URL, &fs.Title, &fs.SiteURL, &fs.ETag,
-			&fs.LastModified, &fetched, &fs.LastError, &fs.ErrorCount, &next, &fs.Unread); err != nil {
+			&fs.LastModified, &fetched, &fs.LastError, &fs.ErrorCount, &next, &fs.FullText, &fs.Unread); err != nil {
 			return nil, err
 		}
 		fs.LastFetchedAt, fs.NextFetchAt = parseTime(fetched), parseTime(next)

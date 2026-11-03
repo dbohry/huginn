@@ -42,6 +42,9 @@
         if (url) window.open(url, '_blank', 'noopener,noreferrer');
         break;
       }
+      case 'f':
+        reader.loadFull();
+        break;
       case 'r':
         reader.refresh();
         break;

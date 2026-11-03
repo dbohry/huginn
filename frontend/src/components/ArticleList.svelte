@@ -71,6 +71,10 @@
         <span class="grow"></span>
         <button class="act danger" onclick={unfollow}>Unfollow</button>
       </div>
+      <label class="check auto">
+        <input type="checkbox" checked={feed.fullText} onchange={(e) => reader.setFeedFullText(feed.id, e.currentTarget.checked)} />
+        Load full articles automatically
+      </label>
     </div>
   {/if}
 
@@ -239,6 +243,11 @@
   }
   .grow {
     flex: 1;
+  }
+  .auto {
+    min-height: 40px;
+    margin-left: 0;
+    font-size: 13px;
   }
   .act {
     display: inline-flex;

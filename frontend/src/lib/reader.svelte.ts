@@ -28,6 +28,8 @@ class Reader {
   loadingList = $state(false);
   loadingMore = $state(false);
   loadingItem = $state(false);
+  /** The full article is being fetched from the article's own page. */
+  loadingFull = $state(false);
   refreshing = $state(false);
   /** The id of the one feed being refreshed, if any. */
   refreshingFeedId = $state<number | null>(null);
@@ -85,7 +87,7 @@ class Reader {
     this.selected = null;
     this.pane = 'list';
     this.addOpen = false;
-    this.loadingList = this.loadingMore = this.loadingItem = this.refreshing = false;
+    this.loadingList = this.loadingMore = this.loadingItem = this.loadingFull = this.refreshing = false;
     this.refreshingFeedId = null;
     this.listError = '';
     this.toast = null;
@@ -191,11 +193,49 @@ class Reader {
       const { item: detail } = await api.item(item.id);
       if (token !== this.itemToken) return;
       this.selected = detail;
+      // A feed set to load full articles does it as soon as one is opened.
+      if (this.feeds.find((f) => f.id === detail.feedId)?.fullText) void this.loadFull();
       if (item.unread) await this.setRead(item.id, true);
     } catch (e) {
       if (token === this.itemToken) this.notify(message(e), 'error');
     } finally {
       if (token === this.itemToken) this.loadingItem = false;
+    }
+  }
+
+  /** Loads the open article's full text from its own page, once. A failure is shown and the summary stays. */
+  async loadFull() {
+    const current = this.selected;
+    if (!current || current.fullText || !current.url || this.loadingFull) return;
+    const id = current.id;
+    const token = this.itemToken;
+    this.loadingFull = true;
+    this.announcement = 'Loading the full article';
+    try {
+      const { item: detail } = await api.loadFullText(id);
+      // Only if the same article is still open, and keep a read or unread change made meanwhile.
+      if (token === this.itemToken && this.selected?.id === id) {
+        this.selected = { ...detail, unread: this.selected.unread };
+        this.announcement = 'The full article is loaded';
+      }
+    } catch (e) {
+      if (this.selected?.id === id) this.notify(message(e), 'error');
+    } finally {
+      this.loadingFull = false;
+    }
+  }
+
+  /** Turns loading full articles automatically on or off for a feed. */
+  async setFeedFullText(id: number, on: boolean) {
+    const feed = this.feeds.find((f) => f.id === id);
+    if (!feed) return;
+    try {
+      const { feed: updated } = await api.setFeedFullText(id, on);
+      feed.fullText = updated.fullText;
+      this.notify(on ? `Full articles will load by themselves in ${feed.title}` : `Stopped loading full articles in ${feed.title}`);
+      if (on && this.selected?.feedId === id) void this.loadFull();
+    } catch (e) {
+      this.notify(message(e), 'error');
     }
   }
 

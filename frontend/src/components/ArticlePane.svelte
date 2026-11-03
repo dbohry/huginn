@@ -7,6 +7,13 @@
   import { when } from '../lib/time';
 
   const item = $derived(reader.selected);
+  const host = (url: string) => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return '';
+    }
+  };
   let headline = $state<HTMLElement>();
 
   // Pictures load as they scroll into view and never tell the feed's site which page asked.
@@ -65,6 +72,18 @@
       <p class="byline">
         {item.feedTitle}{item.author ? ` · ${item.author}` : ''} · {when(item.publishedAt)}
       </p>
+      {#if reader.loadingFull}
+        <p class="fullnote" role="status">Loading the full article…</p>
+      {:else if item.fullText}
+        <p class="fullnote">Showing the full article{host(item.url) ? ` from ${host(item.url)}` : ''}.</p>
+      {:else if item.summaryOnly}
+        <div class="hint">
+          <p>This is only the summary the feed provides.</p>
+          {#if item.url}<button class="button" onclick={() => reader.loadFull()}>Load full article</button>{/if}
+        </div>
+      {:else if item.url}
+        <button class="loadfull" onclick={() => reader.loadFull()}>Load full article</button>
+      {/if}
       <!-- Sanitized by the server with an allow-list before it is sent. -->
       <div class="content" use:enhance={item.content}>{@html item.content}</div>
     </article>
@@ -161,6 +180,41 @@
     margin: 0 0 32px;
     font-size: 13px;
     color: var(--muted);
+  }
+  .hint {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    margin: -12px 0 28px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .hint p {
+    margin: 0;
+    font-size: 14px;
+  }
+  .fullnote {
+    margin: -20px 0 24px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .loadfull {
+    margin: -22px 0 20px -8px;
+    padding: 0 8px;
+    min-height: 44px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--accent);
+    font-size: 13px;
+    transition: background-color 0.12s;
+  }
+  .loadfull:hover {
+    background: var(--selected);
   }
   .content {
     font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;

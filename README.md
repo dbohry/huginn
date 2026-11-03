@@ -23,7 +23,8 @@
 - **Several users.** Each has their own feeds and read state. The first account is the administrator and adds the others.
 - **Safe to read.** Article HTML is cleaned with an allow-list before it is shown: no scripts, frames, forms or styles, and links open in a new tab without handing over the page.
 - **Polite to the sites it follows.** Conditional requests so unchanged feeds cost almost nothing, one request at a time per site, a size limit, and a longer wait after repeated failures.
-- **Keyboard shortcuts.** `j` and `k` move between articles, `m` marks read or unread, `o` opens the original and `r` refreshes. They can be switched off in Settings.
+- **Full articles.** Many feeds share only a short summary. Huginn says so, and one click on **Load full article** (or the `f` key) reads the article from its own page, keeping it so the page is fetched once. A feed can be set to do this by itself as you open its articles.
+- **Keyboard shortcuts.** `j` and `k` move between articles, `m` marks read or unread, `o` opens the original, `f` loads the full article and `r` refreshes. They can be switched off in Settings.
 - **Light and dark**, following the device or set by you.
 - **Accessible.** Every screen passes an automated axe check in both themes, on a phone and a desktop.
 - **Tiny.** The whole interface is about 40 KB compressed. There are no other services to run.
@@ -80,6 +81,7 @@ It prints a temporary password and signs that user out everywhere. They choose a
 - By default Huginn fetches the addresses you give it, including addresses on your own network, so that feeds from your other services work. If other people have accounts, set `HUGINN_BLOCK_PRIVATE_NETWORKS=true` so nobody can use Huginn to probe your network. It checks the address actually connected to, so redirects and names that resolve to private addresses are refused too.
 - Put Huginn behind a reverse proxy with HTTPS if you reach it from outside your home network. It marks its cookie `Secure` when the proxy sends `X-Forwarded-Proto: https`.
 - Pictures inside articles are loaded by your browser straight from the feed's site, over HTTPS only.
+- Loading a full article makes Huginn fetch that article's web page, so it follows `HUGINN_BLOCK_PRIVATE_NETWORKS` too. It works on pages that show their text without needing a script; a paywalled page, or one that builds itself in the browser, gives an error and you keep the summary.
 - Each feed keeps its newest 1000 articles.
 
 ## Develop

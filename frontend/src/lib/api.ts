@@ -16,6 +16,8 @@ export type Feed = {
   lastFetchedAt: number | null;
   /** The last fetch error, or "" when the last fetch worked. */
   error: string;
+  /** Load the full article automatically when one of this feed's articles is opened. */
+  fullText: boolean;
 };
 
 /** An article in a list. */
@@ -35,7 +37,13 @@ export type Item = {
 };
 
 /** An article opened for reading. `content` is sanitized HTML. */
-export type ItemDetail = Item & { content: string };
+export type ItemDetail = Item & {
+  content: string;
+  /** True when `content` is the full article loaded from its own page, not what the feed gave. */
+  fullText: boolean;
+  /** True when the feed gave nothing but a short summary. */
+  summaryOnly: boolean;
+};
 
 /** A row on the Users screen. */
 export type UserSummary = {
@@ -124,6 +132,7 @@ export const api = {
   feeds: () => request<{ feeds: Feed[] }>('GET', '/api/feeds'),
   addFeed: (url: string) => request<{ feed: Feed }>('POST', '/api/feeds', json({ url })),
   deleteFeed: (id: number) => request<void>('DELETE', `/api/feeds/${id}`),
+  setFeedFullText: (id: number, on: boolean) => request<{ feed: Feed }>('PATCH', `/api/feeds/${id}`, json({ fullText: on })),
   refreshFeed: (id: number) => request<void>('POST', `/api/feeds/${id}/refresh`),
   /** Starts fetching every feed in the background. */
   refreshAll: () => request<{ feeds: number }>('POST', '/api/refresh'),
@@ -138,6 +147,8 @@ export const api = {
     return request<{ items: Item[]; next: string }>('GET', `/api/items${qs ? `?${qs}` : ''}`);
   },
   item: (id: number) => request<{ item: ItemDetail }>('GET', `/api/items/${id}`),
+  /** Fetches the article's own page and keeps the readable text. */
+  loadFullText: (id: number) => request<{ item: ItemDetail }>('POST', `/api/items/${id}/full`),
   setRead: (id: number, read: boolean) => request<void>('PUT', `/api/items/${id}/read`, json({ read })),
   readAll: (feedId?: number | null) =>
     request<{ marked: number }>('POST', '/api/read-all', json(feedId ? { feedId } : {})),

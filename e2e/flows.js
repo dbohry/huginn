@@ -185,6 +185,59 @@ async function addFeed(page, address) {
       await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
     });
 
+    await step('a summary-only feed says so, and the full article loads on request', async () => {
+      await addFeed(page, site.url + '/summaryonly.xml');
+      await page.getByRole('heading', { name: 'Summary Only Feed', level: 1 }).waitFor();
+      await page.getByRole('button', { name: /Summary story 1\b/ }).click();
+      await page.getByRole('heading', { name: 'Summary story 1', level: 2 }).waitFor();
+      await page.getByText('This is only the summary the feed provides.').waitFor();
+      assert.ok(!(await page.locator('.content').innerText()).includes('The full text of story 1'), 'the full text was already showing');
+
+      await page.getByRole('button', { name: 'Load full article' }).click();
+      await page.getByText(/Showing the full article from 127\.0\.0\.1/).waitFor();
+      const text = await page.locator('.content').innerText();
+      assert.match(text, /The full text of story 1 begins here/);
+      assert.ok(!text.trimStart().startsWith('Summary story 1'), 'the headline is repeated at the top of the article');
+      assert.match(text, /third paragraph finishes the full text of story 1/);
+      assert.ok(!/newsletter|Copyright/.test(text), 'the page around the article came along');
+      assert.strictEqual(await page.getByText('This is only the summary the feed provides.').count(), 0, 'the hint stayed after loading');
+
+      // It is kept: after a reload the article opens with its full text, without asking again.
+      await page.reload();
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Summary Only Feed/ }).click();
+      await page.getByRole('button', { name: /Summary story 1\b/ }).click();
+      await page.getByText(/Showing the full article from/).waitFor();
+    });
+
+    await step('the f key loads the full article, and a feed can do it by itself', async () => {
+      await page.keyboard.press('j');
+      await page.getByRole('heading', { name: 'Summary story 2', level: 2 }).waitFor();
+      await page.keyboard.press('f');
+      await page.getByText(/Showing the full article from/).waitFor();
+      assert.match(await page.locator('.content').innerText(), /The full text of story 2 begins here/);
+
+      await page.getByLabel('Load full articles automatically').check();
+      await page.getByText(/Full articles will load by themselves in Summary Only Feed/).waitFor();
+      await page.keyboard.press('j');
+      await page.getByRole('heading', { name: 'Summary story 3', level: 2 }).waitFor();
+      // Nobody pressed anything: it loads because the feed is set to.
+      await page.getByText(/Showing the full article from/).waitFor();
+      assert.match(await page.locator('.content').innerText(), /The full text of story 3 begins here/);
+    });
+
+    await step('when the full article cannot be loaded the summary stays, and it says why', async () => {
+      await page.getByRole('button', { name: /Broken link story/ }).click();
+      await page.getByRole('heading', { name: 'Broken link story', level: 2 }).waitFor();
+      const alert = page.getByRole('alert');
+      await alert.waitFor();
+      assert.match(await alert.innerText(), /Could not load the full article\. The site answered "404 Not Found"/);
+      assert.match(await page.locator('.content').innerText(), /A teaser whose page is gone/);
+      await page.getByText('This is only the summary the feed provides.').waitFor();
+      await page.getByLabel('Load full articles automatically').uncheck();
+      await page.getByRole('button', { name: 'Unfollow' }).click();
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
+    });
+
     await step('unfollowing a feed removes it and its articles', async () => {
       await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Hostile Feed/ }).click();
       await page.getByRole('button', { name: 'Unfollow' }).click();

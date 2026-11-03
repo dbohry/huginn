@@ -55,6 +55,7 @@
     { keys: 'k', does: 'Previous article' },
     { keys: 'm', does: 'Mark read or unread' },
     { keys: 'o', does: 'Open the original' },
+    { keys: 'f', does: 'Load the full article' },
     { keys: 'r', does: 'Refresh all feeds' },
   ];
 

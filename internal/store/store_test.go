@@ -277,3 +277,71 @@ func TestReadStateAndUnreadCounts(t *testing.T) {
 		t.Fatalf("items should go with their feed: %v", err)
 	}
 }
+
+func TestFullTextIsKeptPerArticleAndScopedToItsOwner(t *testing.T) {
+	st, conn := newStore(t)
+	ctx := context.Background()
+	if _, err := conn.Exec(`INSERT INTO users (id, username, password_hash, created_at) VALUES (2, 'other', 'x', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	mine, _ := st.CreateFeed(ctx, 1, "https://example.com/feed")
+	theirs, _ := st.CreateFeed(ctx, 2, "https://example.com/feed")
+	base := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	seedItems(t, st, mine, base, 1, "mine")
+	seedItems(t, st, theirs, base, 1, "theirs")
+	var myItem, theirItem int64
+	conn.QueryRow(`SELECT id FROM items WHERE feed_id = ?`, mine).Scan(&myItem)
+	conn.QueryRow(`SELECT id FROM items WHERE feed_id = ?`, theirs).Scan(&theirItem)
+
+	if it, _ := st.GetItem(ctx, 1, myItem); it.FullHTML != "" {
+		t.Fatalf("nothing is loaded yet, got %q", it.FullHTML)
+	}
+	if err := st.SaveFullText(ctx, 1, myItem, "<p>the whole article</p>"); err != nil {
+		t.Fatal(err)
+	}
+	if it, _ := st.GetItem(ctx, 1, myItem); it.FullHTML != "<p>the whole article</p>" || it.ContentHTML != "<p>body</p>" {
+		t.Fatalf("full text and the feed's own content are kept apart: %+v", it)
+	}
+	if err := st.SaveFullText(ctx, 1, theirItem, "x"); err != ErrNotFound {
+		t.Errorf("saving onto another user's article: %v", err)
+	}
+
+	// A refresh that edits the article must not throw the loaded text away.
+	if err := st.UpsertItems(ctx, mine, []feed.Item{{GUID: "mine0", Title: "Edited", Published: ptr(base)}}, base); err != nil {
+		t.Fatal(err)
+	}
+	if it, _ := st.GetItem(ctx, 1, myItem); it.FullHTML == "" || it.Title != "Edited" {
+		t.Fatalf("a refresh dropped the full text or missed the edit: %+v", it)
+	}
+}
+
+func TestFeedFullTextSwitch(t *testing.T) {
+	st, conn := newStore(t)
+	ctx := context.Background()
+	conn.Exec(`INSERT INTO users (id, username, password_hash, created_at) VALUES (2, 'other', 'x', 0)`)
+	mine, _ := st.CreateFeed(ctx, 1, "https://example.com/feed")
+	theirs, _ := st.CreateFeed(ctx, 2, "https://example.com/feed")
+
+	if f, _ := st.GetFeed(ctx, mine); f.FullText {
+		t.Fatal("full articles are off by default")
+	}
+	if err := st.SetFeedFullText(ctx, 1, mine, true); err != nil {
+		t.Fatal(err)
+	}
+	feeds, _ := st.ListFeeds(ctx, 1)
+	if len(feeds) != 1 || !feeds[0].FullText {
+		t.Fatalf("the switch should show in the feed list: %+v", feeds)
+	}
+	if err := st.SetFeedFullText(ctx, 1, theirs, true); err != ErrNotFound {
+		t.Errorf("switching another user's feed: %v", err)
+	}
+	if f, _ := st.GetFeed(ctx, theirs); f.FullText {
+		t.Error("another user's feed was changed")
+	}
+	if err := st.SetFeedFullText(ctx, 1, mine, false); err != nil {
+		t.Fatal(err)
+	}
+	if f, _ := st.GetFeed(ctx, mine); f.FullText {
+		t.Error("the switch did not turn off")
+	}
+}

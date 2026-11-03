@@ -17,10 +17,12 @@ type Item struct {
 	URL         string
 	Author      string
 	PublishedAt time.Time
-	// Summary is cut short when listing. ContentHTML is only set by GetItem.
+	// Summary is cut short when listing. ContentHTML and FullHTML are only set by GetItem.
 	Summary     string
 	ContentHTML string
-	IsRead      bool
+	// FullHTML is the article loaded from its own page, or "" if that has not been done.
+	FullHTML string
+	IsRead   bool
 }
 
 // Cursor marks where the next page of articles starts. Articles are sorted
@@ -50,7 +52,7 @@ func scanItem(row scanner, withContent bool) (Item, error) {
 	dest := []any{&it.ID, &it.FeedID, &it.FeedTitle, &it.FeedURL, &it.Title, &it.URL, &it.Author,
 		&published, &it.Summary, &it.IsRead}
 	if withContent {
-		dest = append(dest, &it.ContentHTML)
+		dest = append(dest, &it.ContentHTML, &it.FullHTML)
 	}
 	if err := row.Scan(dest...); err != nil {
 		return Item{}, err
@@ -114,7 +116,7 @@ func (s *Store) ListItems(ctx context.Context, f ItemFilter) ([]Item, *Cursor, e
 // GetItem returns one of the user's articles with its full content.
 func (s *Store) GetItem(ctx context.Context, userID, id int64) (Item, error) {
 	it, err := scanItem(s.db.QueryRowContext(ctx, `SELECT i.id, i.feed_id, f.title, f.url, i.title, i.url, i.author,
-		i.published_at, i.summary, i.is_read, i.content_html `+itemFrom+` WHERE i.id = ? AND f.user_id = ?`, id, userID), true)
+		i.published_at, i.summary, i.is_read, i.content_html, i.full_html `+itemFrom+` WHERE i.id = ? AND f.user_id = ?`, id, userID), true)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Item{}, ErrNotFound
 	}
@@ -190,4 +192,29 @@ func (s *Store) UserFeedIDs(ctx context.Context, userID int64) ([]int64, error) 
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+// SaveFullText keeps the full article loaded from an article's own page.
+func (s *Store) SaveFullText(ctx context.Context, userID, id int64, fullHTML string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE items SET full_html = ?
+		WHERE id = ? AND feed_id IN (SELECT id FROM feeds WHERE user_id = ?)`, fullHTML, id, userID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetFeedFullText turns loading full articles automatically on or off for one of the user's feeds.
+func (s *Store) SetFeedFullText(ctx context.Context, userID, feedID int64, on bool) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE feeds SET full_text = ? WHERE id = ? AND user_id = ?`, on, feedID, userID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

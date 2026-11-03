@@ -64,6 +64,7 @@ type server struct {
 	loginByUser   *auth.Limiter
 	passwordByID  *auth.Limiter
 	refreshByUser *auth.Limiter
+	extractByUser *auth.Limiter
 
 	// dummyHash is checked when a username does not exist, so a failed sign-in
 	// takes as long whether or not the account is real.
@@ -86,6 +87,7 @@ func newServer(conn *sql.DB, version string) *server {
 		loginByUser:   auth.NewLimiter(10, 15*time.Minute),
 		passwordByID:  auth.NewLimiter(10, 15*time.Minute),
 		refreshByUser: auth.NewLimiter(20, time.Minute),
+		extractByUser: auth.NewLimiter(40, time.Minute),
 		dummyHash:     dummy,
 	}
 }

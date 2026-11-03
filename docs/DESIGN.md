@@ -32,6 +32,17 @@ It is the same stack as [Bifrost](https://github.com/dbohry/bifrost), and the ac
 - An article is identified by the feed's own id, else its link, else a hash of its title and date. Fetching again updates an edited article but never changes whether it was read. An article with no date keeps the time it was first seen.
 - Each feed keeps its newest 1000 articles.
 
+### Full articles
+
+A feed that shares only a summary, as many news sites do, would leave you with a paragraph and a link. Huginn can go and get the article itself, but only when asked.
+
+- **On request.** A **Load full article** button (and the `f` key) fetches the article's own page and finds the article in it, the way a browser's reader view does, using a Go port of Mozilla's Readability. Nothing is fetched while feeds refresh, so a feed of 100 articles costs the site nothing extra.
+- **Kept.** The extracted article is stored with the article, so its page is fetched once. Opening it again shows the kept text.
+- **By feed.** A feed can be set to load full articles automatically. That still happens only as you open an article, never in bulk.
+- **The hint.** When a feed gives no content and only a short summary (under 600 characters), the reading pane says "This is only the summary the feed provides" next to the button.
+- **Limits.** The page must be HTML, at most 3 MB, and answer within 25 seconds. The same private-network setting that applies to feeds applies here. Text that is too short to be an article, a paywall, or a page that builds itself with a script gives an error and the summary stays.
+- **Safe.** The extracted HTML is a stranger's HTML like any other, so it goes through the same sanitizer when it is shown. The kept copy is the raw extraction; it is cleaned every time it is read, so a stricter sanitizer later applies to old articles too.
+
 ### Safety
 
 - Everything from a feed that reaches the page goes through `internal/sanitize`. Article HTML is cleaned with an allow-list (no scripts, frames, forms, styles or `javascript:`/`data:` addresses), links open in a new tab with `noopener noreferrer`, and headings are shifted below the article's own title. Snippets and titles are plain text.

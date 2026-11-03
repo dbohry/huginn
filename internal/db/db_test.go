@@ -30,8 +30,8 @@ func TestMigrateIsIdempotent(t *testing.T) {
 	if err := d.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
-	if n != 4 {
-		t.Fatalf("applied %d migrations, want 4", n)
+	if n != 5 {
+		t.Fatalf("applied %d migrations, want 5", n)
 	}
 }
 
@@ -109,5 +109,60 @@ func TestFailedMigrationLeavesNoTrace(t *testing.T) {
 	}
 	if _, err := d.Exec(`SELECT * FROM half`); err == nil {
 		t.Fatal("table from the failed migration still exists")
+	}
+}
+
+// A database that already holds a user, a feed and an article is upgraded from the schema
+// before the full-text columns: nothing is lost, and the new columns start at their defaults.
+func TestUpgradeKeepsExistingData(t *testing.T) {
+	d := openTemp(t)
+
+	// The first four migrations only: the schema of the previous release.
+	older := fstest.MapFS{}
+	for _, name := range []string{"0001_init.sql", "0002_feeds_items.sql", "0003_users_sessions.sql", "0004_feeds_owner.sql"} {
+		body, err := migrationFiles.ReadFile("migrations/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		older["migrations/"+name] = &fstest.MapFile{Data: body}
+	}
+	if err := migrate(d, older); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO users (id, username, password_hash, created_at) VALUES (1, 'alex', 'hash', 0)`,
+		`INSERT INTO feeds (id, user_id, url, title) VALUES (7, 1, 'https://example.com/feed', 'Example')`,
+		`INSERT INTO items (id, feed_id, guid, title, summary, content_html, is_read) VALUES (42, 7, 'g', 'An article', 'Summary', '<p>Body</p>', 1)`,
+	} {
+		if _, err := d.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := Migrate(d); err != nil { // up to the current schema
+		t.Fatalf("upgrade: %v", err)
+	}
+
+	var title, summary, content, full string
+	var read, feedFull int
+	err := d.QueryRow(`SELECT title, summary, content_html, full_html, is_read FROM items WHERE id = 42`).Scan(&title, &summary, &content, &full, &read)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if title != "An article" || summary != "Summary" || content != "<p>Body</p>" || read != 1 {
+		t.Errorf("the article changed: %q %q %q read=%d", title, summary, content, read)
+	}
+	if full != "" {
+		t.Errorf("full_html should start empty, got %q", full)
+	}
+	if err := d.QueryRow(`SELECT title, full_text FROM feeds WHERE id = 7`).Scan(&title, &feedFull); err != nil {
+		t.Fatal(err)
+	}
+	if title != "Example" || feedFull != 0 {
+		t.Errorf("the feed changed: %q full_text=%d", title, feedFull)
+	}
+	// The new column accepts only 0 and 1.
+	if _, err := d.Exec(`UPDATE feeds SET full_text = 2 WHERE id = 7`); err == nil {
+		t.Error("full_text accepted a value other than 0 or 1")
 	}
 }

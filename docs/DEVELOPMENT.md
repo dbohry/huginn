@@ -21,6 +21,7 @@ Browser checks live in `e2e/` and need Chromium: run `npm install` in that direc
 - `cmd/huginn`: the binary and its subcommands (`serve`, `reset-password`, `healthcheck`, `version`)
 - `internal/config`, `internal/db`, `internal/store`, `internal/auth`, `internal/server`: configuration, SQLite with migrations, data access, passwords and rate limiting, HTTP handlers
 - `internal/feed`: fetching (conditional requests, size limit, timeout), parsing RSS, Atom and JSON Feed, and finding the feed a web page advertises
+- `internal/article`: finds the readable article in a web page, for **Load full article**. `feed.Fetcher.FetchPage` downloads the page (size limit, character set, private-network setting) and `article.Extract` reads it
 - `internal/refresh`: the background refresher: due feeds once a minute, four at a time, one at a time per host, exponential backoff after failures
 - `internal/sanitize`: the allow-list that cleans article HTML, and the plain-text snippets. A test feeds it hostile input
 - `internal/opml`: OPML import and export

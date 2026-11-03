@@ -11,6 +11,7 @@ const sizes = [
 ];
 const schemes = ['light', 'dark'];
 let failed = 0;
+let story = 0;
 let audited = 0;
 
 async function audit(page, label) {
@@ -47,6 +48,7 @@ const post = (page, path, body) =>
   await post(p0, '/api/feeds', { url: site.url + '/fieldnotes.xml' });
   await post(p0, '/api/feeds', { url: site.url + '/systems.atom' });
   await post(p0, '/api/feeds', { url: site.url + '/hostile.xml' });
+  await post(p0, '/api/feeds', { url: site.url + '/summaryonly.xml' });
   const created = await post(p0, '/api/users', { username: 'sam', isAdmin: false });
   const cookies = await admin.cookies();
   await admin.close();
@@ -103,6 +105,18 @@ const post = (page, path, body) =>
       await page.getByRole('dialog').getByRole('alert').waitFor();
       await audit(page, `${tag}: add feed dialog with an error`);
       await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+
+      // A story whose feed gives only a summary: the hint, then the full article. Each pass uses its
+      // own story, because a loaded article is kept.
+      story += 1;
+      await page.goto(BASE + '/');
+      await page.getByRole('button', { name: new RegExp(`Summary story ${story}\\b`) }).click();
+      await page.getByRole('heading', { name: `Summary story ${story}`, level: 2 }).waitFor();
+      await page.getByText('This is only the summary the feed provides.').waitFor();
+      await audit(page, `${tag}: article with the summary-only hint`);
+      await page.getByRole('button', { name: 'Load full article' }).click();
+      await page.getByText(/Showing the full article from/).waitFor();
+      await audit(page, `${tag}: full article loaded`);
 
       await page.goto(BASE + '/settings');
       await page.getByRole('heading', { name: 'Users' }).waitFor();
