@@ -136,6 +136,10 @@
     height: 100dvh;
     width: 100%;
     max-width: 100vw;
+    transition: grid-template-columns 0.2s ease;
+  }
+  .app :global(.sidebar) {
+    overflow-x: hidden;
   }
   .app.rail {
     grid-template-columns: 56px minmax(300px, 380px) minmax(0, 1fr);
