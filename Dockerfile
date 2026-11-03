@@ -11,7 +11,7 @@ COPY frontend/ ./
 RUN npm run build && npm run size
 
 # --- Backend: cross-compile the Go binary for the target architecture.
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
