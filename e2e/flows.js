@@ -118,15 +118,26 @@ async function addFeed(page, address) {
       assert.strictEqual(await unreadOf(page, 'Field Notes'), 3);
     });
 
-    await step('"Unread only" hides what has been read', async () => {
+    await step('"Unread only" hides what has been read, but only once something else is opened', async () => {
       await page.getByRole('button', { name: /Walking the long way/ }).click();
       await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
       await page.getByLabel('Unread only').check();
+      // The article being read stays in the list, read, for as long as it is open.
+      await page.waitForFunction(() => document.querySelectorAll('.item').length === 3);
+      assert.ok((await page.locator('.item .title').allInnerTexts()).includes('Walking the long way to the station'));
+      // Opening another article lets the first one go.
+      await page.getByRole('button', { name: /A week with only a paper calendar/ }).click();
+      await page.getByRole('heading', { name: 'A week with only a paper calendar', level: 2 }).waitFor();
       await page.waitForFunction(() => document.querySelectorAll('.item').length === 2);
       const titles = (await page.locator('.item .title').allInnerTexts()).sort();
       assert.deepStrictEqual(titles, ['A week with only a paper calendar', 'Notes on keeping a notebook']);
+      // Put the calendar article back to unread, so the later steps start from what they expect.
+      await page.getByRole('button', { name: 'Mark unread' }).click();
+      await page.getByRole('button', { name: 'Mark read' }).waitFor();
       await page.getByLabel('Unread only').uncheck();
       await page.waitForFunction(() => document.querySelectorAll('.item').length === 3);
+      await page.getByRole('button', { name: /Walking the long way/ }).click();
+      await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
     });
 
     await step('keyboard shortcuts move through the list and toggle read, but not while typing', async () => {
