@@ -76,16 +76,19 @@
         <p class="fullnote" role="status">Loading the full article…</p>
       {:else if item.fullText}
         <p class="fullnote">Showing the full article{host(item.url) ? ` from ${host(item.url)}` : ''}.</p>
-      {:else if item.summaryOnly}
-        <div class="hint">
-          <p>This is only the summary the feed provides.</p>
-          {#if item.url}<button class="button" onclick={() => reader.loadFull()}>Load full article</button>{/if}
-        </div>
-      {:else if item.url}
-        <button class="loadfull" onclick={() => reader.loadFull()}>Load full article</button>
       {/if}
       <!-- Sanitized by the server with an allow-list before it is sent. -->
       <div class="content" use:enhance={item.content}>{@html item.content}</div>
+      {#if !reader.loadingFull && !item.fullText}
+        {#if item.summaryOnly}
+          <div class="hint">
+            <p>This is only the summary the feed provides.</p>
+            {#if item.url}<button class="button" onclick={() => reader.loadFull()}>Load full article</button>{/if}
+          </div>
+        {:else if item.url}
+          <button class="loadfull" onclick={() => reader.loadFull()}>Load full article</button>
+        {/if}
+      {/if}
     </article>
   {:else}
     <div class="placeholder">
@@ -187,7 +190,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px 16px;
-    margin: -12px 0 28px;
+    margin: 28px 0 0;
     padding: 12px 14px;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -203,7 +206,7 @@
     color: var(--muted);
   }
   .loadfull {
-    margin: -22px 0 20px -8px;
+    margin: 16px 0 0 -8px;
     padding: 0 8px;
     min-height: 44px;
     border: 0;
