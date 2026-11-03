@@ -66,10 +66,22 @@
   {/each}
 
   <div class="foot">
-    <button class="button" onclick={() => (reader.addOpen = true)}>Add feed</button>
-    <div class="links">
-      <a href="/settings" use:link>Settings</a>
-      <button class="plain" onclick={() => session.logout()}>Sign out</button>
+    <button class="button add" onclick={() => (reader.addOpen = true)}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+      Add feed
+    </button>
+    <div class="account">
+      <span class="avatar" aria-hidden="true">{(session.user?.username ?? '').slice(0, 1).toUpperCase()}</span>
+      <div class="who">
+        <span class="user">{session.user?.username}</span>
+        {#if session.user?.isAdmin}<span class="role">Administrator</span>{/if}
+      </div>
+      <a class="icon" href="/settings" use:link aria-label="Settings" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" /></svg>
+      </a>
+      <button class="icon" type="button" aria-label="Sign out" title="Sign out" onclick={() => session.logout()}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+      </button>
     </div>
   </div>
 </nav>
@@ -202,33 +214,72 @@
     margin-top: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--border);
   }
-  .links {
+  .add {
+    min-height: 40px;
+  }
+  .account {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 10px;
+    padding-left: 4px;
   }
-  .links a,
-  .plain {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding: 0 8px;
+  .avatar {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--selected);
+    display: grid;
+    place-items: center;
+    font-weight: 600;
+  }
+  .who {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+  }
+  .user {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .role {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .icon {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
     border: 0;
+    border-radius: 8px;
     background: transparent;
-    color: var(--accent);
-    text-decoration: none;
+    color: var(--muted);
+    transition: background-color 0.12s;
   }
-  .plain:hover,
-  .links a:hover {
-    text-decoration: underline;
+  .icon:hover {
+    background: var(--selected);
+    color: var(--text);
   }
   @media (pointer: coarse) {
     .row {
       min-height: 44px;
+    }
+    .add {
+      min-height: 44px;
+    }
+    .icon {
+      width: 44px;
+      height: 44px;
     }
   }
 </style>
