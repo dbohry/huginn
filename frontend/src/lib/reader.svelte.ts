@@ -126,7 +126,7 @@ class Reader {
       if (fresh === 0) return;
       if (!this.next || shown <= page.items.length) {
         // Only the first page is loaded (or everything fits in it): swap it in place.
-        this.items = page.items;
+        this.items = this.keepOpen(page.items);
         this.next = page.next;
         this.listError = '';
       } else {
@@ -195,7 +195,7 @@ class Reader {
     try {
       const page = await api.items({ feedId: this.feedId, unreadOnly: this.unreadOnly });
       if (token !== this.listToken) return;
-      this.items = page.items;
+      this.items = this.keepOpen(page.items);
       this.next = page.next;
       this.listError = '';
     } catch (e) {
@@ -203,6 +203,20 @@ class Reader {
     } finally {
       if (token === this.listToken) this.loadingList = false;
     }
+  }
+
+  /**
+   * With "Unread only" on, a list from the server leaves out the article being read, because it is now read.
+   * It stays where it was until another article is opened, so put it back.
+   */
+  private keepOpen(fresh: Item[]): Item[] {
+    if (!this.unreadOnly || this.selectedId === null || fresh.some((i) => i.id === this.selectedId)) return fresh;
+    const at = this.items.findIndex((i) => i.id === this.selectedId);
+    const open = this.items[at];
+    if (!open || open.unread || (this.feedId !== null && open.feedId !== this.feedId)) return fresh;
+    const kept = [...fresh];
+    kept.splice(Math.min(at, kept.length), 0, open);
+    return kept;
   }
 
   async retry() {
@@ -376,7 +390,11 @@ class Reader {
       const { marked } = await api.readAll(this.feedId);
       this.notify(marked === 0 ? `Nothing unread in ${scope}` : `${plural(marked, 'article', 'articles')} marked read in ${scope}`);
       await Promise.all([this.loadFeeds(), this.loadItems()]);
-      if (this.selected && (this.feedId === null || this.selected.feedId === this.feedId)) this.selected.unread = false;
+      if (this.selected && (this.feedId === null || this.selected.feedId === this.feedId)) {
+        this.selected.unread = false;
+        const open = this.items.find((i) => i.id === this.selected?.id);
+        if (open) open.unread = false;
+      }
     } catch (e) {
       this.notify(message(e), 'error');
     }
