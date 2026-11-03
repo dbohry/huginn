@@ -1,13 +1,75 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+  import AddFeedDialog from '../components/AddFeedDialog.svelte';
   import ArticleList from '../components/ArticleList.svelte';
   import ArticlePane from '../components/ArticlePane.svelte';
   import Sidebar from '../components/Sidebar.svelte';
+  import Toast from '../components/Toast.svelte';
+  import { appearance } from '../lib/appearance.svelte';
   import { reader } from '../lib/reader.svelte';
+  import { ui } from '../lib/ui.svelte';
 
   $effect(() => {
     reader.init();
   });
+
+  // Single-key shortcuts, only when nothing is being typed and no dialog is open.
+  // Inputs that are not for typing text (a checkbox, a button) leave the shortcuts working.
+  const notText = new Set(['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'range', 'color', 'image']);
+
+  function typing(target: EventTarget | null) {
+    const el = target as HTMLElement | null;
+    if (!el) return false;
+    if (el.isContentEditable || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true;
+    return el.tagName === 'INPUT' && !notText.has((el as HTMLInputElement).type);
+  }
+
+  function onkeydown(e: KeyboardEvent) {
+    if (!appearance.shortcuts || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (typing(e.target) || document.querySelector('dialog[open]')) return;
+    switch (e.key) {
+      case 'j':
+        reader.step(1);
+        break;
+      case 'k':
+        reader.step(-1);
+        break;
+      case 'm':
+        reader.toggleRead();
+        break;
+      case 'o': {
+        const url = reader.selected?.url;
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+        break;
+      }
+      case 'r':
+        reader.refresh();
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+  }
+
+  // On a phone only one pane is on screen, so when the pane changes move focus into the new one.
+  // (The article pane moves its own focus once the article has loaded.)
+  let lastPane = reader.pane;
+  $effect(() => {
+    const pane = reader.pane;
+    if (pane === lastPane) return;
+    lastPane = pane;
+    if (!ui.narrow || pane === 'article') return;
+    tick().then(() => {
+      const target =
+        pane === 'feeds'
+          ? document.querySelector('.sidebar .heading')
+          : (document.querySelector('.item.active') ?? document.querySelector('.list h1'));
+      (target as HTMLElement | null)?.focus({ preventScroll: true });
+    });
+  });
 </script>
+
+<svelte:window {onkeydown} />
 
 <!-- Three panes side by side on a wide screen; one at a time on a narrow one. -->
 <main class="app" data-pane={reader.pane}>
@@ -16,6 +78,9 @@
   <ArticlePane />
   <p class="sr-only" role="status" aria-live="polite">{reader.announcement}</p>
 </main>
+
+{#if reader.addOpen}<AddFeedDialog onclose={() => (reader.addOpen = false)} />{/if}
+<Toast />
 
 <style>
   .app {

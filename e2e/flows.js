@@ -21,7 +21,8 @@ async function step(name, fn) {
 
 const unreadOf = async (page, feed) => {
   const row = page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: new RegExp('^' + feed) });
-  return Number((await row.locator('.count').innerText()).trim());
+  const badge = row.locator('.count');
+  return (await badge.count()) === 0 ? 0 : Number((await badge.innerText()).trim()); // a zero is not shown
 };
 
 async function addFeed(page, address) {
@@ -47,7 +48,7 @@ async function addFeed(page, address) {
       await page.getByLabel('Password', { exact: true }).fill('demo-password-1');
       await page.getByLabel('Confirm password').fill('demo-password-1');
       await page.getByRole('button', { name: 'Create account' }).click();
-      await page.getByText('Add a feed to get started.').waitFor();
+      await page.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
     });
 
     await step('adding something that is not a feed explains why', async () => {
@@ -98,8 +99,27 @@ async function addFeed(page, address) {
       await page.waitForFunction(() => document.querySelectorAll('.item').length === 3);
     });
 
+    await step('keyboard shortcuts move through the list and toggle read, but not while typing', async () => {
+      // Walking the long way is open and read; the feed is Field Notes, newest first.
+      await page.keyboard.press('j');
+      await page.getByRole('heading', { name: 'Notes on keeping a notebook', level: 2 }).waitFor();
+      await page.keyboard.press('k');
+      await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
+      await page.keyboard.press('m');
+      await page.getByRole('button', { name: 'Mark read' }).waitFor();
+      await page.keyboard.press('m');
+      await page.getByRole('button', { name: 'Mark unread' }).waitFor();
+      // Typing in a field is not a shortcut.
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: 'Add feed' }).click();
+      await page.getByLabel('Feed address').pressSequentially('jkm');
+      assert.strictEqual(await page.getByLabel('Feed address').inputValue(), 'jkm');
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+      await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
+    });
+
     await step('"Mark all read" clears the counts for the feed', async () => {
       await page.getByRole('button', { name: 'Mark all read' }).click();
+      await page.getByText(/\d+ articles? marked read in Field Notes/).waitFor(); // and says so
       await page.waitForFunction(() => [...document.querySelectorAll('.item .dot.unread')].length === 0);
       assert.strictEqual(await unreadOf(page, 'Field Notes'), 0);
       assert.strictEqual(await unreadOf(page, 'Systems Weekly'), 2);
@@ -131,6 +151,8 @@ async function addFeed(page, address) {
       assert.ok(h.doc <= h.view, `the page is ${h.doc}px tall in a ${h.view}px window: hidden text is stretching it`);
       // Scroll the list to its end and then keep going: the page must stay put.
       await page.locator('.list').evaluate((e) => (e.scrollTop = e.scrollHeight));
+      // Reaching the end loads the next page without anyone pressing a button.
+      await page.waitForFunction(() => document.querySelectorAll('.item').length > 50);
       await page.mouse.move(400, 400);
       await page.mouse.wheel(0, 4000);
       await page.waitForTimeout(200);
@@ -146,6 +168,7 @@ async function addFeed(page, address) {
       await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Field Notes/ }).click();
       await page.getByRole('button', { name: 'Refresh', exact: true }).click();
       await page.getByText('Updated just now').waitFor();
+      await page.getByText('Feed refreshed').waitFor();
     });
 
     await step('a feed that starts failing says so, and why', async () => {
@@ -171,7 +194,7 @@ async function addFeed(page, address) {
 
     await step('importing an OPML file adds its feeds once', async () => {
       await page.goto(BASE + '/settings');
-      await page.getByRole('link', { name: '← Back to reading' }).waitFor();
+      await page.getByRole('link', { name: /Back to reading/ }).waitFor();
       const opml = await site.opml();
       await page.locator('input[type=file]').setInputFiles({ name: 'subs.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
       await page.getByText(/already followed 2/).waitFor();
@@ -186,7 +209,23 @@ async function addFeed(page, address) {
       await page.getByLabel('Dark').check();
       await page.reload();
       assert.strictEqual(await page.evaluate(() => document.documentElement.getAttribute('data-theme')), 'dark');
-      await page.getByLabel('Follow the device').check();
+      await page.getByLabel('Device').check();
+    });
+
+    await step('keyboard shortcuts can be switched off', async () => {
+      await page.goto(BASE + '/settings');
+      await page.getByLabel('Use keyboard shortcuts').uncheck();
+      await page.getByRole('link', { name: /Back to reading/ }).click();
+      await page.waitForFunction(() => document.querySelectorAll('.item').length > 0);
+      await page.keyboard.press('j');
+      await page.waitForTimeout(300);
+      assert.strictEqual(await page.locator('.headline').count(), 0, 'j opened an article with shortcuts off');
+      await page.getByRole('link', { name: 'Settings' }).click();
+      await page.getByLabel('Use keyboard shortcuts').check();
+      await page.getByRole('link', { name: /Back to reading/ }).click();
+      await page.waitForFunction(() => document.querySelectorAll('.item').length > 0);
+      await page.keyboard.press('j');
+      await page.locator('.headline').waitFor();
     });
 
     await step('signing out and back in', async () => {
@@ -223,8 +262,36 @@ async function addFeed(page, address) {
       await p2.getByLabel('New password', { exact: true }).fill('sam-password-1');
       await p2.getByLabel('Confirm new password').fill('sam-password-1');
       await p2.getByRole('button', { name: /Change password|Save/ }).click();
-      await p2.getByText('Add a feed to get started.').waitFor();
+      await p2.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
       await other.close();
+    });
+
+    await step("signing out clears the reader, so the next person never sees the last one's feeds", async () => {
+      await page.goto(BASE + '/');
+      await page.waitForFunction(() => document.querySelectorAll('.item').length > 0);
+      await page.waitForFunction(() => /^\(\d+\) Huginn$/.test(document.title)); // the tab title carries the unread count
+      await page.getByRole('button', { name: 'Sign out' }).click();
+      await page.waitForURL('**/login');
+      assert.strictEqual(await page.title(), 'Huginn');
+      // From here on, watch the page for any trace of the previous user's feeds.
+      await page.evaluate(() => {
+        window.__leak = false;
+        new MutationObserver(() => {
+          if (/Systems Weekly|Field Notes/.test(document.body.innerText)) window.__leak = true;
+        }).observe(document.body, { subtree: true, childList: true, characterData: true });
+      });
+      await page.getByLabel('Username').fill('sam');
+      await page.getByLabel('Password', { exact: true }).fill('sam-password-1');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
+      await page.waitForTimeout(500);
+      assert.strictEqual(await page.evaluate(() => window.__leak), false, "the previous user's feeds showed for the next user");
+      await page.getByRole('button', { name: 'Sign out' }).click();
+      await page.waitForURL('**/login');
+      await page.getByLabel('Username').fill('demo');
+      await page.getByLabel('Password', { exact: true }).fill('demo-password-1');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
     });
 
     await step('on a phone one pane shows at a time', async () => {
@@ -236,7 +303,18 @@ async function addFeed(page, address) {
       await p.locator('.item').first().click();
       await p.getByRole('button', { name: 'Back to articles' }).waitFor();
       assert.strictEqual(await p.getByRole('region', { name: 'Articles' }).isVisible(), false);
+      // Focus moves into the article instead of staying on a button that is no longer on screen.
+      await p.waitForFunction(() => document.activeElement?.classList.contains('headline'));
+      // The browser's own Back button returns to the list, and focus returns to the article that was open.
+      await p.goBack();
+      await p.getByRole('region', { name: 'Articles' }).waitFor();
+      assert.strictEqual(await p.getByRole('region', { name: 'Article', exact: true }).isVisible(), false);
+      await p.waitForFunction(() => document.activeElement?.classList.contains('item'));
+      assert.ok(p.url().startsWith(BASE), 'Back left the app');
+      // The on-screen back button agrees with it.
+      await p.locator('.item').first().click();
       await p.getByRole('button', { name: 'Back to articles' }).click();
+      await p.getByRole('region', { name: 'Articles' }).waitFor();
       await p.getByRole('button', { name: 'Show feeds' }).click();
       await p.getByRole('navigation', { name: 'Feeds' }).waitFor();
       await p.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Systems Weekly/ }).click();

@@ -17,11 +17,15 @@ export function when(unixSeconds: number): string {
   return new Date(unixSeconds * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+/** "Updated just now", "Updated 12m ago" or a date: a label followed by how long ago something happened. */
+export function since(label: string, unixSeconds: number, now = Date.now() / 1000): string {
+  const age = ago(unixSeconds, now);
+  if (age === 'now') return `${label} just now`;
+  // "12m", "3h" and "2d" read as "12m ago"; anything older shows its date.
+  return /^\d+[mhd]$/.test(age) ? `${label} ${age} ago` : `${label} ${age}`;
+}
+
 /** "Updated just now", "Updated 12m ago" or "Not fetched yet", for a feed's last fetch. */
 export function updated(unixSeconds: number | null, now = Date.now() / 1000): string {
-  if (unixSeconds === null) return 'Not fetched yet';
-  const age = ago(unixSeconds, now);
-  if (age === 'now') return 'Updated just now';
-  // "12m", "3h" and "2d" read as "12m ago"; an older feed shows its date.
-  return /^\d+[mhd]$/.test(age) ? `Updated ${age} ago` : `Updated ${age}`;
+  return unixSeconds === null ? 'Not fetched yet' : since('Updated', unixSeconds, now);
 }

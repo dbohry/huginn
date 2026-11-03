@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+  import { reader } from './lib/reader.svelte';
   import { router } from './lib/router.svelte';
   import { session } from './lib/session.svelte';
   import ChangePassword from './screens/ChangePassword.svelte';
@@ -25,6 +27,17 @@
       default:
         return 'loading';
     }
+  });
+
+  // Nobody is signed in: forget the previous person's feeds and articles, so the next user never sees them.
+  $effect(() => {
+    if (session.phase !== 'authed') untrack(() => reader.reset());
+  });
+
+  // The tab title carries the unread count, so it shows in a pinned or background tab.
+  $effect(() => {
+    const unread = screen === 'home' && router.path !== '/settings' ? reader.totalUnread : 0;
+    document.title = unread > 0 ? `(${unread}) Huginn` : 'Huginn';
   });
 
   const paths = { setup: '/setup', login: '/login', 'change-password': '/change-password' };

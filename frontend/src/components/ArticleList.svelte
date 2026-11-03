@@ -1,93 +1,140 @@
 <script lang="ts">
+  import { link } from '../lib/router.svelte';
   import { ago, updated } from '../lib/time';
   import { reader } from '../lib/reader.svelte';
 
+  const feed = $derived(reader.currentFeed);
+  const firstRun = $derived(reader.feeds.length === 0 && !reader.loadingList);
+
   async function unfollow() {
-    const feed = reader.currentFeed;
     if (feed && confirm(`Stop following ${feed.title}? Its articles are deleted too.`)) await reader.removeFeed(feed.id);
   }
 
   const emptyText = $derived(
-    reader.unreadOnly ? 'Nothing unread. You are all caught up.' : reader.feeds.length === 0 ? 'Add a feed to get started.' : 'No articles yet.',
+    reader.unreadOnly ? 'Nothing unread. You are all caught up.' : feed ? 'No articles in this feed yet.' : 'No articles yet.',
   );
+
+  // Loads the next page when the end of the list scrolls close, so there is no button to hunt for.
+  // The sentinel is recreated after every page, so a page that is still short of the end loads the next.
+  function nearEnd(node: HTMLElement) {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const watcher = new IntersectionObserver((entries) => entries[0]?.isIntersecting && reader.more(), {
+      root: node.closest('.list'),
+      rootMargin: '600px',
+    });
+    watcher.observe(node);
+    return { destroy: () => watcher.disconnect() };
+  }
+
+  // Keeps the open article in view while moving through the list with the keyboard.
+  $effect(() => {
+    const id = reader.selectedId;
+    if (id !== null) document.getElementById(`item-${id}`)?.scrollIntoView({ block: 'nearest' });
+  });
 </script>
 
-<section class="list" aria-label="Articles">
+<section class="list" aria-label="Articles" aria-busy={reader.loadingList}>
   <header>
-    <button class="icon mobile-only" aria-label="Show feeds" onclick={() => (reader.pane = 'feeds')}>
+    <button class="icon mobile-only" aria-label="Show feeds" onclick={() => reader.showFeeds()}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
     </button>
-    <h1>{reader.title}</h1>
-    <button class="icon" aria-label="Refresh feeds" disabled={reader.refreshing} onclick={() => reader.refresh()}>
+    <h1 tabindex="-1">{reader.title}</h1>
+    <button class="icon" aria-label="Refresh all feeds" disabled={reader.refreshing || firstRun} onclick={() => reader.refresh()}>
       <svg class:spin={reader.refreshing} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /></svg>
     </button>
   </header>
 
-  <div class="tools">
-    <label class="check">
-      <input type="checkbox" checked={reader.unreadOnly} onchange={(e) => reader.setUnreadOnly(e.currentTarget.checked)} />
-      Unread only
-    </label>
-    <button class="small" onclick={() => reader.markAllRead()}>Mark all read</button>
-  </div>
+  {#if !firstRun}
+    <div class="tools">
+      <label class="check">
+        <input type="checkbox" checked={reader.unreadOnly} onchange={(e) => reader.setUnreadOnly(e.currentTarget.checked)} />
+        Unread only
+      </label>
+      <button class="small" aria-label={feed ? `Mark all read in ${feed.title}` : undefined} onclick={() => reader.markAllRead()}>
+        Mark all read
+      </button>
+    </div>
+  {/if}
 
-  {#if reader.currentFeed}
+  {#if feed}
     <div class="feedbar">
-      {#if reader.currentFeed.error}
-        <p class="feederror">Could not be fetched: {reader.currentFeed.error}</p>
-      {/if}
-      <p class="updated">{updated(reader.currentFeed.lastFetchedAt)}</p>
-      <div class="feedlinks">
-        <a href={reader.currentFeed.siteUrl || reader.currentFeed.url} target="_blank" rel="noopener noreferrer">Visit site</a>
-        <button class="plain" disabled={reader.refreshingFeedId !== null} onclick={() => reader.refreshFeed(reader.currentFeed!.id)}>
-          {reader.refreshingFeedId === reader.currentFeed.id ? 'Refreshing…' : 'Refresh'}
+      <p class="updated">
+        {updated(feed.lastFetchedAt)}
+        {#if feed.error}<span class="feederror">Could not be fetched: {feed.error}</span>{/if}
+      </p>
+      <div class="feedactions">
+        <button class="act" disabled={reader.refreshingFeedId !== null} onclick={() => reader.refreshFeed(feed.id)}>
+          <svg class:spin={reader.refreshingFeedId === feed.id} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /></svg>
+          {reader.refreshingFeedId === feed.id ? 'Refreshing…' : 'Refresh'}
         </button>
-        <button class="plain" onclick={unfollow}>Unfollow</button>
+        <a class="act" href={feed.siteUrl || feed.url} target="_blank" rel="noopener noreferrer">Visit site</a>
+        <span class="grow"></span>
+        <button class="act danger" onclick={unfollow}>Unfollow</button>
       </div>
     </div>
   {/if}
 
-  {#if reader.error}<p class="error" role="alert">{reader.error}</p>{/if}
+  {#if reader.listError}
+    <div class="error" role="alert">
+      <span>{reader.listError}</span>
+      <button class="small" onclick={() => reader.retry()}>Try again</button>
+    </div>
+  {/if}
 
-  <ul>
-    {#each reader.items as item (item.id)}
-      <li>
-        <button
-          class="item"
-          class:active={reader.selectedId === item.id}
-          aria-current={reader.selectedId === item.id ? 'true' : undefined}
-          onclick={() => reader.open(item)}
-        >
-          <span class="meta">
+  {#if firstRun && !reader.listError}
+    <div class="first">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1.2" fill="var(--accent)" /></svg>
+      <h2>Follow your first feed</h2>
+      <p>Paste the address of a feed or of a website, and Huginn finds its feed. Coming from another reader? Import its OPML file.</p>
+      <div class="firstactions">
+        <button class="button" onclick={() => (reader.addOpen = true)}>Add feed</button>
+        <a class="button secondary" href="/settings" use:link>Import OPML</a>
+      </div>
+    </div>
+  {:else}
+    <ul>
+      {#each reader.items as item (item.id)}
+        <li>
+          <button
+            id="item-{item.id}"
+            class="item"
+            class:active={reader.selectedId === item.id}
+            aria-current={reader.selectedId === item.id ? 'true' : undefined}
+            onclick={() => reader.open(item)}
+          >
             <span class="dot" class:unread={item.unread} aria-hidden="true"></span>
             <span class="sr-only">{item.unread ? 'Unread. ' : ''}</span>
-            <span class="feed">{item.feedTitle}</span>
-            <span>{ago(item.publishedAt)}</span>
-          </span>
-          <span class="title" class:unread={item.unread}>{item.title}</span>
-          {#if item.snippet}<span class="snippet">{item.snippet}</span>{/if}
-        </button>
-      </li>
-    {/each}
-  </ul>
+            <span class="meta">
+              <span class="feed">{item.feedTitle}</span>
+              <span>{ago(item.publishedAt)}</span>
+            </span>
+            <span class="title" class:unread={item.unread}>{item.title}</span>
+            {#if item.snippet}<span class="snippet">{item.snippet}</span>{/if}
+          </button>
+        </li>
+      {/each}
+    </ul>
 
-  {#if !reader.loadingList && reader.items.length === 0}
-    <p class="empty">{emptyText}</p>
-  {/if}
-  {#if reader.loadingList}<p class="empty" role="status">Loading…</p>{/if}
+    {#if reader.loadingList && reader.items.length === 0}
+      <p class="empty" role="status">Loading…</p>
+    {:else if reader.items.length === 0 && !reader.listError}
+      <p class="empty">{emptyText}</p>
+    {/if}
 
-  {#if reader.next}
-    <div class="more">
-      <button class="button secondary" disabled={reader.loadingMore} onclick={() => reader.more()}>
-        {reader.loadingMore ? 'Loading…' : 'Load more'}
-      </button>
-    </div>
+    {#if reader.next}
+      {#key reader.items.length}
+        <div class="more" use:nearEnd>
+          <button class="button secondary" disabled={reader.loadingMore} onclick={() => reader.more()}>
+            {reader.loadingMore ? 'Loading…' : 'Load more'}
+          </button>
+        </div>
+      {/key}
+    {/if}
   {/if}
 </section>
 
 <style>
   .list {
-    /* Contains the hidden screen-reader text inside, so it cannot stretch the page. */
     position: relative;
     display: flex;
     flex-direction: column;
@@ -117,6 +164,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  h1:focus {
+    outline: none;
+  }
   .icon {
     width: 44px;
     height: 44px;
@@ -126,9 +176,14 @@
     color: var(--muted);
     display: grid;
     place-items: center;
+    transition: background-color 0.12s;
   }
   .icon:hover:not(:disabled) {
     background: var(--selected);
+  }
+  .icon:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
   .spin {
     animation: spin 1s linear infinite;
@@ -136,11 +191,6 @@
   @keyframes spin {
     to {
       transform: rotate(360deg);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .spin {
-      animation: none;
     }
   }
   .tools {
@@ -161,55 +211,58 @@
     border-radius: 8px;
     background: transparent;
     font-size: 13px;
+    transition: background-color 0.12s;
   }
   .small:hover {
     background: var(--selected);
   }
   .feedbar {
-    padding: 4px 8px 4px 16px;
+    padding: 8px 8px 4px 16px;
     border-bottom: 1px solid var(--border);
   }
-  .feederror {
-    margin: 8px 0 4px;
-    font-size: 13px;
-    color: var(--bad);
-    overflow-wrap: anywhere;
-  }
   .updated {
-    margin: 8px 0 0;
+    margin: 0 0 4px;
     font-size: 12px;
     color: var(--muted);
   }
-  .feedlinks {
+  .feederror {
+    display: block;
+    margin-top: 2px;
+    color: var(--bad);
+    overflow-wrap: anywhere;
+  }
+  .feedactions {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 2px;
+    margin-left: -8px;
   }
-  .feedlinks a,
-  .plain {
+  .grow {
+    flex: 1;
+  }
+  .act {
     display: inline-flex;
     align-items: center;
-    min-height: 44px;
-    padding: 0 8px 0 0;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 8px;
     border: 0;
+    border-radius: 8px;
     background: transparent;
     color: var(--accent);
     font-size: 13px;
     text-decoration: none;
+    transition: background-color 0.12s;
   }
-  .plain {
-    padding: 0 8px;
+  .act:hover:not(:disabled) {
+    background: var(--selected);
   }
-  .plain:last-child {
-    padding-right: 0;
-  }
-  .plain:disabled {
+  .act:disabled {
     opacity: 0.6;
     cursor: default;
   }
-  .feedlinks a:hover,
-  .plain:hover {
-    text-decoration: underline;
+  .act.danger {
+    color: var(--bad);
   }
   ul {
     list-style: none;
@@ -217,19 +270,33 @@
     padding: 0;
   }
   .item {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 6px;
     width: 100%;
-    padding: 14px 16px;
+    padding: 14px 16px 14px 30px;
     border: 0;
     border-bottom: 1px solid var(--border);
     background: transparent;
     text-align: left;
+    transition: background-color 0.12s;
   }
   .item:hover,
   .item.active {
     background: var(--selected);
+  }
+  /* The unread dot hangs in the left margin, so text lines up whether or not it shows. */
+  .dot {
+    position: absolute;
+    left: 13px;
+    top: 19px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .dot.unread {
+    background: var(--accent);
   }
   .meta {
     display: flex;
@@ -245,18 +312,10 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    flex: none;
-  }
-  .dot.unread {
-    background: var(--accent);
-  }
   .title {
     font-size: 14px;
     line-height: 1.35;
+    overflow-wrap: anywhere;
   }
   .title.unread {
     font-weight: 600;
@@ -278,6 +337,10 @@
     color: var(--muted);
   }
   .error {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
     margin: 12px 16px 0;
     padding: 10px 12px;
     border: 1px solid var(--bad);
@@ -289,6 +352,31 @@
     justify-content: center;
     padding: 16px;
   }
+  .first {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 56px 28px;
+    text-align: center;
+  }
+  .first h2 {
+    margin: 4px 0 0;
+    font-size: 18px;
+  }
+  .first p {
+    margin: 0;
+    max-width: 300px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .firstactions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
   .mobile-only {
     display: none;
   }
@@ -298,6 +386,11 @@
     }
     .mobile-only {
       display: grid;
+    }
+  }
+  @media (pointer: coarse) {
+    .act {
+      min-height: 44px;
     }
   }
 </style>

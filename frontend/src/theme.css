@@ -139,3 +139,33 @@ a {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Small touches shared by every screen. */
+::selection {
+  background: var(--selected);
+}
+
+.button {
+  transition: filter 0.12s, background-color 0.12s;
+}
+
+.button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.button.secondary:hover:not(:disabled),
+.button.danger:hover:not(:disabled) {
+  background: var(--selected);
+  filter: none;
+}
+
+/* People who ask their device for less motion get none. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -52,4 +52,15 @@
       {busy ? 'Signing in…' : 'Sign in'}
     </button>
   </form>
+  <p class="forgot">Forgot your password? Ask an administrator to reset it.</p>
 </AuthCard>
+
+<style>
+  .forgot {
+    margin: -8px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: center;
+    color: var(--muted);
+  }
+</style>

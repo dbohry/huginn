@@ -23,9 +23,10 @@
 - **Several users.** Each has their own feeds and read state. The first account is the administrator and adds the others.
 - **Safe to read.** Article HTML is cleaned with an allow-list before it is shown: no scripts, frames, forms or styles, and links open in a new tab without handing over the page.
 - **Polite to the sites it follows.** Conditional requests so unchanged feeds cost almost nothing, one request at a time per site, a size limit, and a longer wait after repeated failures.
+- **Keyboard shortcuts.** `j` and `k` move between articles, `m` marks read or unread, `o` opens the original and `r` refreshes. They can be switched off in Settings.
 - **Light and dark**, following the device or set by you.
 - **Accessible.** Every screen passes an automated axe check in both themes, on a phone and a desktop.
-- **Tiny.** The whole interface is about 30 KB compressed. There are no other services to run.
+- **Tiny.** The whole interface is about 40 KB compressed. There are no other services to run.
 
 <p align="center">
   <img src="docs/screenshots/phone-list.png" alt="Huginn on a phone: the article list" width="30%">

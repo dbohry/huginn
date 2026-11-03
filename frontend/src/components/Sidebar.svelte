@@ -1,12 +1,9 @@
 <script lang="ts">
-  import AddFeedDialog from './AddFeedDialog.svelte';
   import Logo from './Logo.svelte';
   import { link } from '../lib/router.svelte';
   import { reader } from '../lib/reader.svelte';
   import { session } from '../lib/session.svelte';
   import { ui } from '../lib/ui.svelte';
-
-  let adding = $state(false);
 </script>
 
 <nav class="sidebar" aria-label="Feeds">
@@ -19,12 +16,12 @@
     <li>
       <button class="row" class:active={reader.feedId === null} aria-current={reader.feedId === null ? 'true' : undefined} onclick={() => reader.chooseFeed(null)}>
         <span class="name">All items</span>
-        <span class="count">{reader.totalUnread}</span>
+        {#if reader.totalUnread > 0}<span class="count">{reader.totalUnread}</span>{/if}
       </button>
     </li>
   </ul>
 
-  <svelte:element this={ui.narrow ? 'h1' : 'h2'} class="heading">Feeds</svelte:element>
+  <svelte:element this={ui.narrow ? 'h1' : 'h2'} class="heading" tabindex="-1">Feeds</svelte:element>
   <ul class="feeds">
     {#each reader.feeds as feed (feed.id)}
       <li>
@@ -32,11 +29,12 @@
           class="row"
           class:active={reader.feedId === feed.id}
           aria-current={reader.feedId === feed.id ? 'true' : undefined}
+          title={feed.title}
           onclick={() => reader.chooseFeed(feed.id)}
         >
           <span class="name">{feed.title}</span>
-          {#if feed.error}<span class="warn" title={feed.error}><span class="sr-only">Could not be fetched. </span>!</span>{/if}
-          <span class="count">{feed.unread}</span>
+          {#if feed.error}<span class="warn" title="The last fetch failed: {feed.error}"><span class="sr-only">Could not be fetched. </span>!</span>{/if}
+          {#if feed.unread > 0}<span class="count">{feed.unread}</span>{/if}
         </button>
       </li>
     {:else}
@@ -45,7 +43,7 @@
   </ul>
 
   <div class="foot">
-    <button class="button" onclick={() => (adding = true)}>Add feed</button>
+    <button class="button" onclick={() => (reader.addOpen = true)}>Add feed</button>
     <div class="links">
       <a href="/settings" use:link>Settings</a>
       <button class="plain" onclick={() => session.logout()}>Sign out</button>
@@ -53,11 +51,8 @@
   </div>
 </nav>
 
-{#if adding}<AddFeedDialog onclose={() => (adding = false)} />{/if}
-
 <style>
   .sidebar {
-    /* Contains the hidden screen-reader text inside, so it cannot stretch the page. */
     position: relative;
     display: flex;
     flex-direction: column;
@@ -90,6 +85,9 @@
     text-transform: uppercase;
     color: var(--muted);
   }
+  .heading:focus {
+    outline: none;
+  }
   .feeds {
     flex: 1;
   }
@@ -104,6 +102,7 @@
     border-radius: 8px;
     background: transparent;
     text-align: left;
+    transition: background-color 0.12s;
   }
   .row:hover {
     background: var(--selected);
@@ -120,8 +119,19 @@
     white-space: nowrap;
   }
   .count {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--bg);
     font-size: 12px;
+    font-weight: 500;
+    line-height: 20px;
+    text-align: center;
     color: var(--muted);
+  }
+  .row.active .count {
+    background: var(--accent);
+    color: var(--on-accent);
   }
   .warn {
     width: 18px;
@@ -164,5 +174,10 @@
   .plain:hover,
   .links a:hover {
     text-decoration: underline;
+  }
+  @media (pointer: coarse) {
+    .row {
+      min-height: 44px;
+    }
   }
 </style>

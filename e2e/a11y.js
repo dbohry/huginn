@@ -42,7 +42,7 @@ const post = (page, path, body) =>
   await p0.getByLabel('Password', { exact: true }).fill('demo-password-1');
   await p0.getByLabel('Confirm password').fill('demo-password-1');
   await p0.getByRole('button', { name: 'Create account' }).click();
-  await p0.getByText('Add a feed to get started.').waitFor();
+  await p0.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
   await audit(p0, 'empty reader');
   await post(p0, '/api/feeds', { url: site.url + '/fieldnotes.xml' });
   await post(p0, '/api/feeds', { url: site.url + '/systems.atom' });
@@ -86,6 +86,9 @@ const post = (page, path, body) =>
       }
       await page.getByRole('heading', { name: 'Field Notes', level: 1 }).waitFor();
       await audit(page, `${tag}: one feed, with its toolbar`);
+      await page.getByRole('button', { name: /^Mark all read in Field Notes/ }).click();
+      await page.getByText(/marked read in Field Notes|Nothing unread in Field Notes/).waitFor();
+      await audit(page, `${tag}: with a message showing`);
 
       await page.getByRole('button', { name: /A week with only a paper calendar/ }).click();
       await page.getByRole('heading', { name: 'A week with only a paper calendar' }).waitFor();
