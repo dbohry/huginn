@@ -2,6 +2,8 @@
   import { link } from '../lib/router.svelte';
   import { ago, updated } from '../lib/time';
   import { reader } from '../lib/reader.svelte';
+  import { fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
 
   const feed = $derived(reader.currentFeed);
   const firstRun = $derived(reader.feeds.length === 0 && !reader.loadingList);
@@ -16,6 +18,20 @@
 
   // Unread articles in what is shown: the open feed, or every feed.
   const unreadCount = $derived(feed ? feed.unread : reader.totalUnread);
+
+  const reduceMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // A row that leaves the Unread list fades while the rows below glide up. A whole new list
+  // (a filter change, a refresh) replaces rows too, and that must not animate row by row.
+  function leave(node: HTMLElement) {
+    if (reader.loadingList || reduceMotion()) return { duration: 0 };
+    const height = node.offsetHeight;
+    return {
+      duration: 300,
+      easing: cubicOut,
+      css: (t: number) => `height:${t * height}px;opacity:${t};overflow:hidden;`,
+    };
+  }
 
   // Bumped once the list for a new filter has arrived, so the rows ease in then, not before.
   let swap = $state(0);
@@ -61,7 +77,9 @@
         <span class="thumb" aria-hidden="true"></span>
         <button type="button" aria-pressed={reader.unreadOnly} onclick={() => choose(true)}>
           Unread
-          {#if unreadCount > 0}<span class="n">{unreadCount}</span>{/if}
+          {#if unreadCount > 0}
+            {#key unreadCount}<span class="n" in:fly={{ y: 8, duration: reduceMotion() ? 0 : 250 }}>{unreadCount}</span>{/key}
+          {/if}
         </button>
         <button type="button" aria-pressed={!reader.unreadOnly} onclick={() => choose(false)}>All</button>
       </div>
@@ -132,7 +150,7 @@
     {#key swap}
     <ul class:swap={swap > 0}>
       {#each reader.items as item (item.id)}
-        <li>
+        <li out:leave>
           <button
             id="item-{item.id}"
             class="item"
@@ -296,6 +314,7 @@
     transform: translateX(100%);
   }
   .n {
+    display: inline-block;
     font-size: 12px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
