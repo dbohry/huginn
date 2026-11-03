@@ -165,6 +165,23 @@ async function addFeed(page, address) {
       await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
     });
 
+    await step('arrow down and up scroll the article when nothing has focus', async () => {
+      await page.evaluate(() => {
+        document.activeElement?.blur();
+        const spacer = document.createElement('div');
+        spacer.id = 'e2e-spacer';
+        spacer.style.height = '3000px';
+        document.querySelector('section.pane[aria-label="Article"] article').append(spacer);
+      });
+      const top = () => page.evaluate(() => document.querySelector('section.pane[aria-label="Article"]').scrollTop);
+      assert.strictEqual(await top(), 0);
+      await page.keyboard.press('ArrowDown');
+      await page.waitForFunction(() => document.querySelector('section.pane[aria-label="Article"]').scrollTop > 0);
+      await page.keyboard.press('ArrowUp');
+      await page.waitForFunction(() => document.querySelector('section.pane[aria-label="Article"]').scrollTop === 0);
+      await page.evaluate(() => document.getElementById('e2e-spacer').remove());
+    });
+
     await step('"Mark all read" clears the counts for the feed', async () => {
       await page.getByRole('button', { name: 'Mark all read' }).click();
       await page.getByText(/\d+ articles? marked read in Field Notes/).waitFor(); // and says so
