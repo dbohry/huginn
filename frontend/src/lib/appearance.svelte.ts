@@ -4,6 +4,7 @@ const MODE_KEY = 'huginn.mode';
 const SHORTCUTS_KEY = 'huginn.shortcuts';
 const GROUP_KEY = 'huginn.group';
 const UNREAD_KEY = 'huginn.unreadOnly';
+const SIDEBAR_KEY = 'huginn.sidebar';
 
 // The browser's address bar and status bar take this colour on a phone.
 const barColour = { light: '#ffffff', dark: '#141414' };
@@ -54,6 +55,14 @@ class Appearance {
   setGroupByTopic(on: boolean) {
     this.groupByTopic = on;
     write(GROUP_KEY, on ? null : 'off');
+  }
+
+  /** Whether the feeds sidebar is folded to a narrow strip. Only applies on a wide screen. */
+  sidebarCollapsed = $state(read(SIDEBAR_KEY) === 'collapsed');
+
+  setSidebarCollapsed(on: boolean) {
+    this.sidebarCollapsed = on;
+    write(SIDEBAR_KEY, on ? 'collapsed' : null);
   }
 
   /** Whether the article list shows only unread articles. Remembered, so it need not be ticked every visit. */

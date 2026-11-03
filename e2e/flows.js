@@ -320,6 +320,19 @@ async function addFeed(page, address) {
       await nav.getByText('Reading', { exact: true }).waitFor();
     });
 
+    await step('the sidebar can be folded to a strip and opened again, and the choice sticks', async () => {
+      const nav = page.getByRole('navigation', { name: 'Feeds' });
+      await nav.getByRole('button', { name: 'Collapse sidebar' }).click();
+      await nav.getByRole('button', { name: 'Expand sidebar' }).waitFor();
+      assert.strictEqual(await nav.getByRole('button', { name: 'All items' }).count(), 0, 'feed list hidden while folded');
+      await nav.getByRole('button', { name: 'Add feed' }).waitFor();
+      await page.reload();
+      await nav.getByRole('button', { name: 'Expand sidebar' }).waitFor();
+      await nav.getByRole('button', { name: 'Expand sidebar' }).click();
+      await nav.getByRole('button', { name: 'Collapse sidebar' }).waitFor();
+      await nav.getByRole('button', { name: /^Field Notes/ }).waitFor();
+    });
+
     await step('an administrator can edit the starter list', async () => {
       await page.goto(BASE + '/settings');
       await openSection(page, 'Starter feeds');

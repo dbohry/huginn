@@ -112,7 +112,7 @@
 <svelte:window {onkeydown} />
 
 <!-- Three panes side by side on a wide screen; one at a time on a narrow one. -->
-<main class="app" data-pane={reader.pane} {ontouchstart} {ontouchend} ontouchcancel={() => (swipe = null)}>
+<main class="app" class:rail={appearance.sidebarCollapsed} data-pane={reader.pane} {ontouchstart} {ontouchend} ontouchcancel={() => (swipe = null)}>
   <Sidebar />
   <ArticleList />
   <ArticlePane />
@@ -136,6 +136,9 @@
     height: 100dvh;
     width: 100%;
     max-width: 100vw;
+  }
+  .app.rail {
+    grid-template-columns: 56px minmax(300px, 380px) minmax(0, 1fr);
   }
   @media (max-width: 899px) {
     .app {
