@@ -122,6 +122,26 @@ async function addFeed(page, address) {
       assert.strictEqual(await page.getByRole('link', { name: 'Open original' }).count(), 0, 'a javascript: link was offered');
     });
 
+    await step('a long list scrolls inside its pane, never the page', async () => {
+      await addFeed(page, site.url + '/many.xml');
+      await page.getByRole('heading', { name: 'Long Feed', level: 1 }).waitFor();
+      await page.waitForFunction(() => document.querySelectorAll('.item').length >= 50);
+      const pageHeights = () => page.evaluate(() => ({ doc: document.documentElement.scrollHeight, view: innerHeight, y: scrollY }));
+      let h = await pageHeights();
+      assert.ok(h.doc <= h.view, `the page is ${h.doc}px tall in a ${h.view}px window: hidden text is stretching it`);
+      // Scroll the list to its end and then keep going: the page must stay put.
+      await page.locator('.list').evaluate((e) => (e.scrollTop = e.scrollHeight));
+      await page.mouse.move(400, 400);
+      await page.mouse.wheel(0, 4000);
+      await page.waitForTimeout(200);
+      h = await pageHeights();
+      assert.strictEqual(h.y, 0, 'the page scrolled');
+      assert.ok(await page.locator('.list').evaluate((e) => e.scrollTop > 1000), 'the list did not scroll');
+      assert.strictEqual(await page.getByRole('navigation', { name: 'Feeds' }).evaluate((e) => Math.round(e.getBoundingClientRect().top)), 0, 'the panes moved');
+      await page.getByRole('button', { name: 'Unfollow' }).click();
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
+    });
+
     await step('refreshing one feed shows when it was updated', async () => {
       await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Field Notes/ }).click();
       await page.getByRole('button', { name: 'Refresh', exact: true }).click();

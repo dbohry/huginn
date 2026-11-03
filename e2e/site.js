@@ -55,6 +55,12 @@ const gardens = [
     summary: 'Broad beans, garlic and a last row of lettuce under a cloche.',
     body: '<p>Garlic wants a cold spell, so get it in the ground now.</p>' },
 ];
+// A long feed, for checking that a long list scrolls inside its pane and not the page.
+const many = Array.from({ length: 120 }, (_, i) => ({
+  id: 'm' + i, title: `Long list article ${i}: a headline long enough to wrap onto a second line`, link: 'https://example.com/m' + i,
+  date: new Date(Date.UTC(2026, 10, 2, 12, 0, 0) - i * 60000).toUTCString(),
+  summary: `Summary of article ${i}, long enough that the two line clamp has something to cut off.`, body: `<p>Body ${i}</p>`,
+}));
 // A feed written by someone hostile. None of this may run or show.
 const hostile = [
   { id: 'h1', title: 'Totally harmless post', link: 'javascript:window.__pwned=1', date: 'Mon, 02 Nov 2026 07:00:00 +0000',
@@ -75,6 +81,7 @@ function start(port = 0) {
       case '/flaky.xml': // works once, then fails
         if (++flakyHits > 1) { res.writeHead(500); return res.end('down'); }
         return send('application/rss+xml', rss('Flaky Feed', base + '/flaky/', [{ id: 'f1', title: 'Only article', link: 'https://example.com/f1', date: 'Mon, 02 Nov 2026 05:00:00 +0000', summary: 'It worked once.', body: '<p>It worked once.</p>' }]));
+      case '/many.xml': return send('application/rss+xml', rss('Long Feed', base + '/many/', many));
       case '/gardens.xml': return send('application/rss+xml', rss('Tiny Gardens', base + '/gardens/', gardens));
       case '/systems.atom': return send('application/atom+xml', atom('Systems Weekly', base + '/systems/', systems));
       case '/systems/': return send('text/html', `<!doctype html><html><head><title>Systems Weekly</title><link rel="alternate" type="application/atom+xml" href="/systems.atom"></head><body>Home</body></html>`);

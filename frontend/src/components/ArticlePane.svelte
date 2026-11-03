@@ -40,6 +40,8 @@
 
 <style>
   .pane {
+    /* Contains the hidden screen-reader text inside, so it cannot stretch the page. */
+    position: relative;
     display: flex;
     flex-direction: column;
     min-width: 0;

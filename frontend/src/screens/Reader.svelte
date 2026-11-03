@@ -14,12 +14,16 @@
   <Sidebar />
   <ArticleList />
   <ArticlePane />
+  <p class="sr-only" role="status" aria-live="polite">{reader.announcement}</p>
 </main>
-
-<p class="sr-only" role="status" aria-live="polite">{reader.announcement}</p>
 
 <style>
   .app {
+    /* The hidden screen-reader text inside the panes is absolutely positioned. Without a
+       positioned, clipping ancestor here it would stretch the whole page, so the page
+       scrolled (and left a blank area) once a long list reached its end. */
+    position: relative;
+    overflow: hidden;
     display: grid;
     grid-template-columns: 240px minmax(300px, 380px) minmax(0, 1fr);
     height: 100vh;
