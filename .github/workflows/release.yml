@@ -1,8 +1,8 @@
 name: Release
 
 # Every merge to main builds the image for amd64 and arm64 and publishes it to
-# Docker Hub as dbohry/huginn:latest. It can also be started by hand. There is no
-# automatic deploy yet. Changes that cannot affect the image (docs) are skipped.
+# Docker Hub as dbohry/huginn:latest, then asks Portainer to redeploy it. It can
+# also be started by hand. Changes that cannot affect the image (docs) are skipped.
 on:
   push:
     branches: [main]
@@ -46,3 +46,16 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+  deploy:
+    name: Deploy
+    # Only after the image has been published.
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      # Repository secret DEPLOY_WEBHOOK: the Portainer webhook URL of the huginn service.
+      # It is read from the environment so the URL never appears in the command line.
+      - name: Trigger Portainer webhook
+        env:
+          DEPLOY_WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
+        run: curl --fail --silent --show-error --location --request POST "$DEPLOY_WEBHOOK"

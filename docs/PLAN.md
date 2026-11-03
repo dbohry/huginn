@@ -78,8 +78,8 @@ All seven are done.
 | 6 | **Hardening.** HTML sanitizer, feed discovery, backoff for failing feeds, per-host politeness, browser and accessibility checks | A feed containing `<script>` cannot run code, and the accessibility scan is clean |
 | 7 | **Ship.** README with screenshots, `docs/DEVELOPMENT.md`, Docker Hub image, favicon | A fresh machine runs it with one `docker run` |
 
-Deploying automatically (the Portainer webhook Bifrost uses) is left until
-after the MVP.
+Deploying automatically, with the Portainer webhook Bifrost uses, was left until
+after the MVP and has since been added as a `Deploy` job in the release workflow.
 
 ## How the work differed from the plan
 
