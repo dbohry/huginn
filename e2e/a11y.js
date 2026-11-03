@@ -122,8 +122,14 @@ const post = (page, path, body) =>
       await audit(page, `${tag}: full article loaded`);
 
       await page.goto(BASE + '/settings');
-      await page.getByRole('heading', { name: 'Users' }).waitFor();
-      await audit(page, `${tag}: settings`);
+      for (const section of ['Account', 'Appearance', 'Subscriptions', 'Users', 'Starter feeds', 'About']) {
+        await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: section, exact: true }).click();
+        await page.getByRole('heading', { name: section, level: 2 }).waitFor();
+        await audit(page, `${tag}: settings, ${section}`);
+      }
+      await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Account', exact: true }).click();
+      await page.getByRole('button', { name: 'Change password' }).click();
+      await audit(page, `${tag}: settings, change password form`);
       await ctx.close();
     }
   }

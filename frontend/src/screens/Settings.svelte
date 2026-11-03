@@ -15,6 +15,19 @@
 
   let starterOpen = $state(false);
 
+  // --- sections: only the selected one is shown ---
+  type Section = 'account' | 'appearance' | 'subscriptions' | 'users' | 'starter' | 'about';
+  let selected = $state<Section>('account');
+  const general: { id: Section; label: string }[] = [
+    { id: 'account', label: 'Account' },
+    { id: 'appearance', label: 'Appearance' },
+    { id: 'subscriptions', label: 'Subscriptions' },
+  ];
+  const admin: { id: Section; label: string }[] = [
+    { id: 'users', label: 'Users' },
+    { id: 'starter', label: 'Starter feeds' },
+  ];
+
   // --- account ---
   let current = $state('');
   let next = $state('');
@@ -22,6 +35,7 @@
   let pwError = $state('');
   let pwDone = $state(false);
   let pwBusy = $state(false);
+  let pwOpen = $state(false);
   const pwReady = $derived(current !== '' && next !== '' && confirmNext !== '');
 
   async function changePassword(e: SubmitEvent) {
@@ -40,12 +54,20 @@
     try {
       await session.changePassword(current, next);
       current = next = confirmNext = '';
+      pwOpen = false;
       pwDone = true;
     } catch (err) {
       pwError = messageOf(err);
     } finally {
       pwBusy = false;
     }
+  }
+
+  function togglePassword() {
+    pwOpen = !pwOpen;
+    pwError = '';
+    pwDone = false;
+    if (!pwOpen) current = next = confirmNext = '';
   }
 
   // --- appearance ---
@@ -140,6 +162,12 @@
   const lastSeen = (u: UserSummary) => (u.lastSeenAt === null ? 'Never signed in' : since('Last seen', u.lastSeenAt));
 </script>
 
+{#snippet navButton(item: { id: Section; label: string })}
+  <button type="button" class="navlink" class:on={selected === item.id} aria-current={selected === item.id ? 'true' : undefined} onclick={() => (selected = item.id)}>
+    {item.label}
+  </button>
+{/snippet}
+
 <main class="page">
   <header class="top">
     <a class="back" href="/" use:link>
@@ -152,130 +180,191 @@
     </div>
   </header>
 
-  <section class="card" aria-labelledby="account">
-    <div class="head">
-      <h2 id="account">Account</h2>
-      <p class="who">
-        Signed in as <strong>{session.user?.username}</strong>
-        {#if session.user?.isAdmin}<span class="badge">Administrator</span>{/if}
-      </p>
-    </div>
-    <form class="form" onsubmit={changePassword}>
-      <Field label="Current password" type="password" bind:value={current} autocomplete="current-password" />
-      <Field label="New password" type="password" bind:value={next} autocomplete="new-password" hint="At least 8 characters." />
-      <Field label="Confirm new password" type="password" bind:value={confirmNext} autocomplete="new-password" />
-      {#if pwError}<p class="error" role="alert">{pwError}</p>{/if}
-      {#if pwDone}<p class="ok" role="status">Password changed. Other devices have been signed out.</p>{/if}
-      <div class="actions">
-        <button class="button" type="submit" disabled={pwBusy || !pwReady}>{pwBusy ? 'Saving…' : 'Change password'}</button>
-        <button class="button secondary" type="button" onclick={() => session.logout()}>Sign out</button>
-      </div>
-    </form>
-  </section>
+  <div class="layout">
+    <nav class="nav" aria-label="Settings sections">
+      {#each general as item (item.id)}{@render navButton(item)}{/each}
+      {#if session.user?.isAdmin}
+        <span class="navgroup">Administration</span>
+        {#each admin as item (item.id)}{@render navButton(item)}{/each}
+      {/if}
+      <span class="navgap"></span>
+      {@render navButton({ id: 'about', label: 'About' })}
+    </nav>
 
-  <section class="card" aria-labelledby="appearance">
-    <div class="head">
-      <h2 id="appearance">Appearance</h2>
-      <p class="sub">Kept in this browser only.</p>
-    </div>
-    <fieldset class="segments">
-      <legend class="label">Theme</legend>
-      <div class="segmented">
-        {#each modes as m (m.value)}
-          <label class="segment">
-            <input type="radio" name="mode" value={m.value} checked={appearance.mode === m.value} onchange={() => appearance.set(m.value)} />
-            <span>{m.label}</span>
-          </label>
-        {/each}
-      </div>
-    </fieldset>
-  </section>
-
-  <section class="card" aria-labelledby="keys">
-    <div class="head">
-      <h2 id="keys">Keyboard shortcuts</h2>
-      <p class="sub">Single keys that work while reading. Turn them off if you would rather not risk pressing one by accident.</p>
-    </div>
-    <label class="check">
-      <input type="checkbox" checked={appearance.shortcuts} onchange={(e) => appearance.setShortcuts(e.currentTarget.checked)} />
-      Use keyboard shortcuts
-    </label>
-    <dl class="keys" class:off={!appearance.shortcuts}>
-      {#each shortcuts as s (s.keys)}
-        <div>
-          <dt><kbd>{s.keys}</kbd></dt>
-          <dd>{s.does}</dd>
-        </div>
-      {/each}
-    </dl>
-  </section>
-
-  <section class="card" aria-labelledby="subs">
-    <div class="head">
-      <h2 id="subs">Subscriptions</h2>
-      <p class="sub">Move your feeds in or out with an OPML file, the format every feed reader understands.</p>
-    </div>
-    <div class="actions">
-      <a class="button secondary" href="/api/opml" download="huginn-subscriptions.opml">Export OPML</a>
-      <label class="button secondary file">
-        Import OPML
-        <input type="file" accept=".opml,.xml,text/xml,application/xml,text/x-opml" onchange={importFile} />
-      </label>
-      <button class="button secondary" onclick={() => (starterOpen = true)}>Browse starter feeds</button>
-    </div>
-    {#if importMessage}<p class="ok" role="status">{importMessage}</p>{/if}
-    {#if importError}<p class="error" role="alert">{importError}</p>{/if}
-  </section>
-
-  {#if session.user?.isAdmin}
-    <section class="card" aria-labelledby="users">
-      <div class="head">
-        <h2 id="users">Users</h2>
-        <p class="sub">Each person has their own feeds and read state. New users get a temporary password to change at their first sign-in.</p>
-      </div>
-      {#if usersError}<p class="error" role="alert">{usersError}</p>{/if}
-      <ul class="users">
-        {#each users as u (u.id)}
-          <li>
-            <span class="avatar" aria-hidden="true">{u.username.slice(0, 1).toUpperCase()}</span>
-            <div class="info">
-              <span class="name">
-                <strong>{u.username}</strong>
-                {#if u.isAdmin}<span class="badge">Administrator</span>{/if}
-                {#if u.id === session.user?.id}<span class="badge">You</span>{/if}
-              </span>
-              <span class="muted">{u.mustChangePassword ? 'Has a temporary password' : lastSeen(u)}</span>
-            </div>
-            {#if u.id !== session.user?.id}
-              <div class="rowactions">
-                <button class="button secondary" onclick={() => resetUser(u)}>Reset password</button>
-                <button class="button danger" onclick={() => removeUser(u)}>Remove</button>
+    <div class="content">
+      {#if selected === 'account'}
+        <section aria-labelledby="account">
+          <div class="head">
+            <h2 id="account">Account</h2>
+            <p class="sub">Your sign-in details.</p>
+          </div>
+          <div class="group">
+            <div class="row">
+              <div class="text">
+                <span class="lbl">{session.user?.username}{#if session.user?.isAdmin}<span class="badge">Administrator</span>{/if}</span>
+                <span class="desc">Signed in</span>
               </div>
+              <button class="button secondary" type="button" onclick={() => session.logout()}>Sign out</button>
+            </div>
+            <div class="row">
+              <div class="text">
+                <span class="lbl">Password</span>
+                <span class="desc">Changing it signs you out on your other devices.</span>
+              </div>
+              <button class="button secondary" type="button" aria-expanded={pwOpen} onclick={togglePassword}>{pwOpen ? 'Cancel' : 'Change password'}</button>
+            </div>
+            {#if pwDone}
+              <div class="row tint"><p class="ok" role="status">Password changed. Other devices have been signed out.</p></div>
             {/if}
-          </li>
-        {/each}
-      </ul>
-      <form class="adduser" onsubmit={addUser}>
-        <div class="fields">
-          <Field label="New username" bind:value={newName} autocomplete="off" />
-          <label class="check"><input type="checkbox" bind:checked={newAdmin} /> Administrator</label>
-          <div><button class="button" type="submit" disabled={newName.trim() === ''}>Add user</button></div>
-        </div>
-      </form>
-    </section>
-  {/if}
-
-  {#if session.user?.isAdmin}<StarterAdmin />{/if}
-
-  <section class="card" aria-labelledby="about">
-    <div class="head">
-      <h2 id="about">About</h2>
-      <p class="sub">
-        Huginn {session.version || ''}, a small self-hosted RSS reader.
-        <a href="https://github.com/dbohry/huginn" target="_blank" rel="noopener noreferrer">Source and documentation</a>
-      </p>
+            {#if pwOpen}
+              <form class="row tint stack" onsubmit={changePassword}>
+                <div class="fields">
+                  <Field label="Current password" type="password" bind:value={current} autocomplete="current-password" />
+                  <Field label="New password" type="password" bind:value={next} autocomplete="new-password" hint="At least 8 characters." />
+                  <Field label="Confirm new password" type="password" bind:value={confirmNext} autocomplete="new-password" />
+                  {#if pwError}<p class="error" role="alert">{pwError}</p>{/if}
+                  <div><button class="button" type="submit" disabled={pwBusy || !pwReady}>{pwBusy ? 'Saving…' : 'Change password'}</button></div>
+                </div>
+              </form>
+            {/if}
+          </div>
+        </section>
+      {:else if selected === 'appearance'}
+        <section aria-labelledby="appearance">
+          <div class="head">
+            <h2 id="appearance">Appearance</h2>
+            <p class="sub">Kept in this browser only.</p>
+          </div>
+          <div class="group">
+            <div class="row">
+              <div class="text">
+                <span class="lbl">Theme</span>
+                <span class="desc">Match your device, or pick one.</span>
+              </div>
+              <fieldset class="segments">
+                <legend class="sr-only">Theme</legend>
+                <div class="segmented">
+                  {#each modes as m (m.value)}
+                    <label class="segment">
+                      <input type="radio" name="mode" value={m.value} checked={appearance.mode === m.value} onchange={() => appearance.set(m.value)} />
+                      <span>{m.label}</span>
+                    </label>
+                  {/each}
+                </div>
+              </fieldset>
+            </div>
+            <div class="row">
+              <div class="text">
+                <span class="lbl">Keyboard shortcuts</span>
+                <span class="desc">Single keys that work while reading. Turn them off if you would rather not press one by accident.</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" role="switch" checked={appearance.shortcuts} onchange={(e) => appearance.setShortcuts(e.currentTarget.checked)} aria-label="Keyboard shortcuts" />
+                <span class="track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <dl class="row tint keys" class:off={!appearance.shortcuts}>
+              {#each shortcuts as s (s.keys)}
+                <div>
+                  <dt><kbd>{s.keys}</kbd></dt>
+                  <dd>{s.does}</dd>
+                </div>
+              {/each}
+            </dl>
+          </div>
+        </section>
+      {:else if selected === 'subscriptions'}
+        <section aria-labelledby="subs">
+          <div class="head">
+            <h2 id="subs">Subscriptions</h2>
+            <p class="sub">Move your feeds in or out with an OPML file, the format every feed reader understands.</p>
+          </div>
+          <div class="group">
+            <div class="row">
+              <div class="text">
+                <span class="lbl">Import</span>
+                <span class="desc">Add feeds from an OPML file. New feeds are fetched right away.</span>
+              </div>
+              <label class="button secondary file">
+                Import OPML
+                <input type="file" accept=".opml,.xml,text/xml,application/xml,text/x-opml" onchange={importFile} />
+              </label>
+            </div>
+            <div class="row">
+              <div class="text">
+                <span class="lbl">Export</span>
+                <span class="desc">Download everything you follow.</span>
+              </div>
+              <a class="button secondary" href="/api/opml" download="huginn-subscriptions.opml">Export OPML</a>
+            </div>
+            <div class="row">
+              <div class="text">
+                <span class="lbl">Starter feeds</span>
+                <span class="desc">Browse a short list of good places to begin.</span>
+              </div>
+              <button class="button secondary" type="button" onclick={() => (starterOpen = true)}>Browse starter feeds</button>
+            </div>
+            {#if importMessage}<div class="row tint"><p class="ok" role="status">{importMessage}</p></div>{/if}
+            {#if importError}<div class="row tint"><p class="error" role="alert">{importError}</p></div>{/if}
+          </div>
+        </section>
+      {:else if selected === 'users' && session.user?.isAdmin}
+        <section aria-labelledby="users">
+          <div class="head">
+            <h2 id="users">Users</h2>
+            <p class="sub">Each person has their own feeds and read state. New users get a temporary password to change at their first sign-in.</p>
+          </div>
+          {#if usersError}<p class="error" role="alert">{usersError}</p>{/if}
+          <div class="group">
+            {#each users as u (u.id)}
+              <div class="row">
+                <div class="who">
+                  <span class="avatar" aria-hidden="true">{u.username.slice(0, 1).toUpperCase()}</span>
+                  <div class="text">
+                    <span class="lbl">
+                      {u.username}
+                      {#if u.isAdmin}<span class="badge">Administrator</span>{/if}
+                      {#if u.id === session.user?.id}<span class="badge">You</span>{/if}
+                    </span>
+                    <span class="desc">{u.mustChangePassword ? 'Has a temporary password' : lastSeen(u)}</span>
+                  </div>
+                </div>
+                {#if u.id !== session.user?.id}
+                  <div class="rowactions">
+                    <button class="button quiet" type="button" onclick={() => resetUser(u)}>Reset password</button>
+                    <button class="button quiet danger" type="button" onclick={() => removeUser(u)}>Remove</button>
+                  </div>
+                {/if}
+              </div>
+            {/each}
+            <form class="row tint adduser" onsubmit={addUser}>
+              <label class="sr-only" for="new-user">New username</label>
+              <input id="new-user" class="text-input" placeholder="New username" autocomplete="off" autocapitalize="off" spellcheck="false" bind:value={newName} />
+              <label class="check"><input type="checkbox" bind:checked={newAdmin} /> Administrator</label>
+              <button class="button" type="submit" disabled={newName.trim() === ''}>Add user</button>
+            </form>
+          </div>
+        </section>
+      {:else if selected === 'starter' && session.user?.isAdmin}
+        <StarterAdmin />
+      {:else if selected === 'about'}
+        <section aria-labelledby="about">
+          <div class="head">
+            <h2 id="about">About</h2>
+          </div>
+          <div class="group">
+            <div class="row">
+              <div class="text">
+                <span class="lbl">Huginn {session.version || ''}</span>
+                <span class="desc">A small self-hosted RSS reader.</span>
+              </div>
+              <a class="button secondary" href="https://github.com/dbohry/huginn" target="_blank" rel="noopener noreferrer">Source and documentation</a>
+            </div>
+          </div>
+        </section>
+      {/if}
     </div>
-  </section>
+  </div>
 </main>
 
 {#if starterOpen}<StarterDialog onclose={() => (starterOpen = false)} />{/if}
@@ -286,18 +375,17 @@
 
 <style>
   .page {
-    max-width: 680px;
+    max-width: 920px;
     margin: 0 auto;
     padding: 8px 16px calc(64px + var(--safe-bottom));
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
   }
   .top {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding-bottom: 8px;
   }
   .back {
     align-self: flex-start;
@@ -308,11 +396,13 @@
     margin-left: -8px;
     padding: 0 10px 0 6px;
     border-radius: 8px;
+    color: var(--muted);
     text-decoration: none;
     transition: background-color 0.12s;
   }
   .back:hover {
     background: var(--selected);
+    color: var(--text);
   }
   .title {
     display: flex;
@@ -321,52 +411,152 @@
   }
   h1 {
     margin: 0;
-    font-size: 26px;
-    letter-spacing: -0.01em;
+    font-size: 28px;
+    letter-spacing: -0.02em;
   }
-  .card {
-    padding: 20px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
+
+  .layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 24px 48px;
+  }
+  .nav {
+    flex: 0 0 180px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 2px;
   }
+  .navlink {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    text-align: left;
+    white-space: nowrap;
+    transition: background-color 0.12s;
+  }
+  .navlink:hover {
+    background: var(--selected);
+    color: var(--text);
+  }
+  .navlink.on {
+    background: var(--selected);
+    color: var(--text);
+    font-weight: 500;
+  }
+  .navgroup {
+    margin: 16px 12px 4px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .navgap {
+    height: 8px;
+  }
+  .content {
+    flex: 999 1 480px;
+    min-width: 0;
+  }
+  @media (max-width: 719px) {
+    .nav {
+      flex: 1 1 100%;
+      flex-direction: row;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .navlink {
+      min-height: 44px;
+    }
+    .navgroup,
+    .navgap {
+      display: none;
+    }
+  }
+
   .head {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    margin-bottom: 16px;
   }
   h2 {
     margin: 0;
     font-size: 17px;
   }
-  .sub,
-  .who {
+  .sub {
     margin: 0;
     line-height: 1.5;
     color: var(--muted);
   }
-  .who strong {
-    color: var(--text);
+
+  .group {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    margin: 0;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .row:first-child {
+    border-top: 0;
+  }
+  .row.tint {
+    background: var(--surface);
+  }
+  .row.stack {
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+  .lbl {
+    font-weight: 500;
+  }
+  .desc {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted);
   }
   .badge {
     display: inline-block;
-    margin-left: 4px;
+    margin-left: 6px;
     padding: 0 8px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: var(--bg);
+    background: var(--surface);
     font-size: 12px;
+    font-weight: 400;
     line-height: 20px;
     color: var(--muted);
     vertical-align: 1px;
   }
-  .actions {
+  .fields {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 360px;
   }
   .error {
     margin: 0;
@@ -377,6 +567,9 @@
     margin: 0;
     font-size: 13px;
     line-height: 1.5;
+  }
+  .rowactions :global(.button.quiet) {
+    border-color: transparent;
   }
   .file {
     position: relative;
@@ -398,20 +591,15 @@
     margin: 0;
     padding: 0;
     border: 0;
-  }
-  .label {
-    padding: 0;
-    font-size: 13px;
-    font-weight: 500;
-    margin-bottom: 8px;
+    min-width: 0;
   }
   .segmented {
     display: inline-flex;
     gap: 2px;
     padding: 3px;
     border: 1px solid var(--border);
-    border-radius: 11px;
-    background: var(--bg);
+    border-radius: 10px;
+    background: var(--surface);
   }
   .segment {
     position: relative;
@@ -428,18 +616,20 @@
   .segment span {
     display: flex;
     align-items: center;
-    min-height: 38px;
-    padding: 0 18px;
-    border-radius: 8px;
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: 7px;
+    color: var(--muted);
     transition: background-color 0.12s;
   }
   .segment input:checked + span {
-    background: var(--accent);
-    color: var(--on-accent);
+    background: var(--bg);
+    color: var(--text);
     font-weight: 500;
+    box-shadow: 0 0 0 1px var(--border), 0 1px 2px rgb(0 0 0 / 0.12);
   }
   .segment input:not(:checked):hover + span {
-    background: var(--selected);
+    color: var(--text);
   }
   .segment:has(input:focus-visible) {
     outline: 2px solid var(--accent);
@@ -447,11 +637,59 @@
     border-radius: 8px;
   }
 
+  /* Shortcuts switch: a real checkbox drawn as a switch. */
+  .switch {
+    position: relative;
+    flex: none;
+    display: inline-block;
+    width: 44px;
+    height: 26px;
+  }
+  .switch input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .track {
+    position: absolute;
+    inset: 0;
+    border-radius: 13px;
+    background: var(--muted);
+    transition: background-color 0.12s;
+    pointer-events: none;
+  }
+  .track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--bg);
+    transition: transform 0.12s;
+  }
+  .switch input:checked + .track {
+    background: var(--accent);
+  }
+  .switch input:checked + .track::after {
+    transform: translateX(18px);
+    background: var(--on-accent);
+  }
+  .switch:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 13px;
+  }
+
   .keys {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
     gap: 8px 16px;
-    margin: 0;
   }
   .keys.off {
     opacity: 0.5;
@@ -481,18 +719,12 @@
     font-size: 12px;
   }
 
-  .users {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .users li {
+  .who {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
-    padding: 12px 0;
-    border-top: 1px solid var(--border);
+    flex: 1 1 220px;
+    min-width: 0;
   }
   .avatar {
     flex: none;
@@ -504,31 +736,25 @@
     place-items: center;
     font-weight: 600;
   }
-  .info {
-    flex: 1 1 160px;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .muted {
-    font-size: 12px;
-    color: var(--muted);
-  }
   .rowactions {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 4px;
   }
   .adduser {
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
+    justify-content: flex-start;
   }
-  .fields {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-width: 320px;
+  .text-input {
+    flex: 1 1 200px;
+    max-width: 280px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+  }
+  .adduser .button {
+    margin-left: auto;
   }
   @media (pointer: coarse) {
     .segment span {

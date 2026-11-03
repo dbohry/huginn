@@ -25,6 +25,12 @@ const unreadOf = async (page, feed) => {
   return (await badge.count()) === 0 ? 0 : Number((await badge.innerText()).trim()); // a zero is not shown
 };
 
+// Settings shows one section at a time; pick it from the section list.
+async function openSection(page, name) {
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name, exact: true }).click();
+  await page.getByRole('heading', { name, level: 2 }).waitFor();
+}
+
 async function addFeed(page, address) {
   await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: 'Add feed' }).click();
   await page.getByLabel('Feed address').fill(address);
@@ -72,6 +78,7 @@ async function addFeed(page, address) {
       await page.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
       assert.strictEqual(await page.getByRole('dialog').count(), 0, 'no picker on the next visit');
       await page.goto(BASE + '/settings');
+      await openSection(page, 'Subscriptions');
       await page.getByRole('button', { name: 'Browse starter feeds' }).click();
       const dialog = page.getByRole('dialog', { name: 'Start with a few feeds' });
       await dialog.waitFor();
@@ -308,6 +315,7 @@ async function addFeed(page, address) {
 
     await step('an administrator can edit the starter list', async () => {
       await page.goto(BASE + '/settings');
+      await openSection(page, 'Starter feeds');
       const card = page.getByRole('region', { name: 'Starter feeds' });
       await card.waitFor();
       await card.getByLabel('Topic').fill('Music');
@@ -329,7 +337,7 @@ async function addFeed(page, address) {
 
     await step('importing an OPML file adds its feeds once', async () => {
       await page.goto(BASE + '/settings');
-      await page.getByRole('link', { name: /Back to reading/ }).waitFor();
+      await openSection(page, 'Subscriptions');
       const opml = await site.opml();
       await page.getByRole('region', { name: 'Subscriptions' }).locator('input[type=file]').setInputFiles({ name: 'subs.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
       await page.getByText(/already followed 2/).waitFor();
@@ -341,22 +349,26 @@ async function addFeed(page, address) {
     });
 
     await step('the dark theme sticks across a reload', async () => {
+      await openSection(page, 'Appearance');
       await page.getByLabel('Dark').check();
       await page.reload();
       assert.strictEqual(await page.evaluate(() => document.documentElement.getAttribute('data-theme')), 'dark');
+      await openSection(page, 'Appearance');
       await page.getByLabel('Device').check();
     });
 
     await step('keyboard shortcuts can be switched off', async () => {
       await page.goto(BASE + '/settings');
-      await page.getByLabel('Use keyboard shortcuts').uncheck();
+      await openSection(page, 'Appearance');
+      await page.getByLabel('Keyboard shortcuts').uncheck();
       await page.getByRole('link', { name: /Back to reading/ }).click();
       await page.waitForFunction(() => document.querySelectorAll('.item').length > 0);
       await page.keyboard.press('j');
       await page.waitForTimeout(300);
       assert.strictEqual(await page.locator('.headline').count(), 0, 'j opened an article with shortcuts off');
       await page.getByRole('link', { name: 'Settings' }).click();
-      await page.getByLabel('Use keyboard shortcuts').check();
+      await openSection(page, 'Appearance');
+      await page.getByLabel('Keyboard shortcuts').check();
       await page.getByRole('link', { name: /Back to reading/ }).click();
       await page.waitForFunction(() => document.querySelectorAll('.item').length > 0);
       await page.keyboard.press('j');
@@ -380,6 +392,7 @@ async function addFeed(page, address) {
 
     await step('an added user starts with a temporary password and sees none of the administrator\'s feeds', async () => {
       await page.goto(BASE + '/settings');
+      await openSection(page, 'Users');
       await page.getByLabel('New username').fill('sam');
       await page.getByRole('button', { name: 'Add user' }).click();
       const temp = await page.getByLabel('Temporary password').inputValue();
