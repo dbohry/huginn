@@ -1,4 +1,5 @@
 import { api, ApiError, type Feed, type Item, type ItemDetail } from './api';
+import { appearance } from './appearance.svelte';
 import { ui } from './ui.svelte';
 
 /** On a narrow screen only one pane shows at a time. */
@@ -19,7 +20,8 @@ class Reader {
   next = $state('');
   /** The feed being read, or null for every feed. */
   feedId = $state<number | null>(null);
-  unreadOnly = $state(false);
+  /** Remembered in this browser, see appearance. */
+  unreadOnly = $state(appearance.unreadOnly);
   selectedId = $state<number | null>(null);
   selected = $state<ItemDetail | null>(null);
   pane = $state<Pane>('list');
@@ -61,7 +63,9 @@ class Reader {
     // The phone's Back button, and a swipe back, move between the panes.
     if (typeof window !== 'undefined') {
       addEventListener('popstate', (e) => {
+        const was = this.pane;
         this.pane = (e.state as { pane?: Pane } | null)?.pane ?? 'list';
+        if (was === 'article' && this.pane !== 'article') this.dropReadSelection();
       });
       // Coming back to a tab that has been in the background looks for news straight away.
       document.addEventListener('visibilitychange', () => {
@@ -147,7 +151,7 @@ class Reader {
     this.items = [];
     this.next = '';
     this.feedId = null;
-    this.unreadOnly = false;
+    this.unreadOnly = appearance.unreadOnly;
     this.selectedId = null;
     this.selected = null;
     this.pane = 'list';
@@ -230,6 +234,7 @@ class Reader {
 
   /** Shows the list. On a phone this goes back a step, so the Back button and this agree. */
   goList() {
+    this.dropReadSelection();
     const pane = (history.state as { pane?: Pane } | null)?.pane;
     if (!ui.narrow) this.pane = 'list';
     else if (pane === 'article') history.back();
@@ -251,10 +256,20 @@ class Reader {
 
   async setUnreadOnly(value: boolean) {
     this.unreadOnly = value;
+    appearance.setUnreadOnly(value);
     await this.loadItems();
   }
 
+  /** With "Unread only" on, an article that has been read leaves the list once it is no longer the selected one. */
+  private dropReadSelection(keepId: number | null = null) {
+    if (!this.unreadOnly || this.selectedId === null || this.selectedId === keepId) return;
+    const id = this.selectedId;
+    const item = this.items.find((i) => i.id === id);
+    if (item && !item.unread) this.items = this.items.filter((i) => i.id !== id);
+  }
+
   async open(item: Item) {
+    this.dropReadSelection(item.id);
     const token = ++this.itemToken;
     this.selectedId = item.id;
     if (this.pane !== 'article') this.pushPane('article');
