@@ -1,4 +1,5 @@
 import { api, ApiError, type Feed, type Item, type ItemDetail } from './api';
+import { appearance } from './appearance.svelte';
 import { ui } from './ui.svelte';
 
 /** On a narrow screen only one pane shows at a time. */
@@ -16,7 +17,8 @@ class Reader {
   next = $state('');
   /** The feed being read, or null for every feed. */
   feedId = $state<number | null>(null);
-  unreadOnly = $state(false);
+  /** Remembered in this browser, see appearance. */
+  unreadOnly = $state(appearance.unreadOnly);
   selectedId = $state<number | null>(null);
   selected = $state<ItemDetail | null>(null);
   pane = $state<Pane>('list');
@@ -90,7 +92,7 @@ class Reader {
     this.items = [];
     this.next = '';
     this.feedId = null;
-    this.unreadOnly = false;
+    this.unreadOnly = appearance.unreadOnly;
     this.selectedId = null;
     this.selected = null;
     this.pane = 'list';
@@ -191,6 +193,7 @@ class Reader {
 
   async setUnreadOnly(value: boolean) {
     this.unreadOnly = value;
+    appearance.setUnreadOnly(value);
     await this.loadItems();
   }
 

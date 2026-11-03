@@ -3,6 +3,7 @@ export type Mode = 'system' | 'light' | 'dark';
 const MODE_KEY = 'huginn.mode';
 const SHORTCUTS_KEY = 'huginn.shortcuts';
 const GROUP_KEY = 'huginn.group';
+const UNREAD_KEY = 'huginn.unreadOnly';
 
 // The browser's address bar and status bar take this colour on a phone.
 const barColour = { light: '#ffffff', dark: '#141414' };
@@ -53,6 +54,14 @@ class Appearance {
   setGroupByTopic(on: boolean) {
     this.groupByTopic = on;
     write(GROUP_KEY, on ? null : 'off');
+  }
+
+  /** Whether the article list shows only unread articles. Remembered, so it need not be ticked every visit. */
+  unreadOnly = $state(read(UNREAD_KEY) === 'on');
+
+  setUnreadOnly(on: boolean) {
+    this.unreadOnly = on;
+    write(UNREAD_KEY, on ? 'on' : null);
   }
 
   set(mode: Mode) {
