@@ -23,8 +23,7 @@ var ErrTooLarge = errors.New("feed is too large")
 
 // StatusError is returned when the server answers with anything but 200 or 304.
 type StatusError struct {
-	// Status is the HTTP status line, such as "404 Not Found".
-	Status string
+	Status string // such as "404 Not Found"
 }
 
 func (e *StatusError) Error() string { return "server answered " + e.Status }

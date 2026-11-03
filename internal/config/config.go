@@ -15,13 +15,9 @@ const (
 
 // Config holds the settings the server needs at start-up.
 type Config struct {
-	// Addr is the address the HTTP server listens on (HUGINN_ADDR).
-	Addr string
-	// DataDir is the directory that holds the database (HUGINN_DATA_DIR).
-	DataDir string
-	// BlockPrivate makes Huginn refuse to fetch feeds from private networks
-	// (HUGINN_BLOCK_PRIVATE_NETWORKS=true).
-	BlockPrivate bool
+	Addr         string // HUGINN_ADDR
+	DataDir      string // HUGINN_DATA_DIR
+	BlockPrivate bool   // HUGINN_BLOCK_PRIVATE_NETWORKS: refuse to fetch feeds from private networks
 }
 
 // Load reads the configuration from the environment, applying defaults.

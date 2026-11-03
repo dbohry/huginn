@@ -31,8 +31,7 @@ type Article struct {
 	// ContentHTML is the article as HTML, with relative links made absolute. It is
 	// still a stranger's HTML and must be sanitized before it is shown.
 	ContentHTML string
-	// TextLength is the number of characters of text in the article.
-	TextLength int
+	TextLength  int // characters of text
 }
 
 // Extract finds the main article in an HTML page. pageURL is the address the page

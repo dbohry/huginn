@@ -43,10 +43,8 @@ type Feed struct {
 	LastError     string
 	ErrorCount    int
 	NextFetchAt   *time.Time
-	// FullText loads the full article automatically when one of the feed's articles is opened.
-	FullText bool
-	// Category is the topic the feed is filed under, or "" for none.
-	Category string
+	FullText      bool
+	Category      string // "" for none
 }
 
 const feedColumns = `id, user_id, url, title, site_url, etag, last_modified, last_fetched_at, last_error, error_count, next_fetch_at, full_text, category`

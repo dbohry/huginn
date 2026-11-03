@@ -30,8 +30,7 @@ type Service struct {
 	Interval time.Duration
 	Workers  int
 	Log      *slog.Logger
-	// Now can be replaced in tests.
-	Now func() time.Time
+	Now      func() time.Time // replaced in tests
 
 	mu    sync.Mutex
 	hosts map[string]*sync.Mutex

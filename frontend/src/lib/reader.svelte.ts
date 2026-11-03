@@ -4,14 +4,12 @@ import { ui } from './ui.svelte';
 /** On a narrow screen only one pane shows at a time. */
 export type Pane = 'feeds' | 'list' | 'article';
 
-/** A short message that appears for a few seconds after something happens. */
 export type Toast = { id: number; text: string; kind: 'info' | 'error' };
 
 const message = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong.');
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Everything the reading screen shows and does. */
 class Reader {
   feeds = $state<Feed[]>([]);
   items = $state<Item[]>([]);
@@ -30,15 +28,12 @@ class Reader {
   loadingList = $state(false);
   loadingMore = $state(false);
   loadingItem = $state(false);
-  /** The full article is being fetched from the article's own page. */
   loadingFull = $state(false);
   refreshing = $state(false);
-  /** The id of the one feed being refreshed, if any. */
   refreshingFeedId = $state<number | null>(null);
   /** Why the list could not be loaded, or "". Offered with a Retry button. */
   listError = $state('');
   toast = $state<Toast | null>(null);
-  /** Said aloud by screen readers. */
   announcement = $state('');
 
   totalUnread = $derived(this.feeds.reduce((n, f) => n + f.unread, 0));
@@ -108,7 +103,6 @@ class Reader {
     this.announcement = '';
   }
 
-  // --- messages ---
 
   notify(text: string, kind: Toast['kind'] = 'info') {
     clearTimeout(this.toastTimer);
@@ -121,7 +115,6 @@ class Reader {
     this.toast = null;
   }
 
-  // --- loading ---
 
   async loadFeeds() {
     try {
@@ -169,7 +162,6 @@ class Reader {
     }
   }
 
-  // --- moving around ---
 
   private pushPane(pane: Pane) {
     this.pane = pane;
@@ -202,7 +194,6 @@ class Reader {
     await this.loadItems();
   }
 
-  /** Opens an article and marks it read. */
   async open(item: Item) {
     const token = ++this.itemToken;
     this.selectedId = item.id;
@@ -271,7 +262,6 @@ class Reader {
     await this.open(this.items[to]);
   }
 
-  // --- read state ---
 
   async toggleRead() {
     const current = this.items.find((i) => i.id === this.selectedId) ?? this.selected;
@@ -315,9 +305,7 @@ class Reader {
     }
   }
 
-  // --- fetching feeds ---
 
-  /** Fetches every feed in the background, then reloads what the page shows. */
   async refresh() {
     if (this.refreshing) return;
     const generation = this.generation;
