@@ -8,7 +8,7 @@ class Router {
 
   navigate(to: string, { replace = false } = {}) {
     if (to === this.path) return;
-    if (replace) history.replaceState(null, '', to);
+    if (replace) history.replaceState(history.state, '', to);
     else history.pushState(null, '', to);
     this.path = to;
   }
