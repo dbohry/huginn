@@ -6,6 +6,9 @@
   import { session } from '../lib/session.svelte';
   import { ui } from '../lib/ui.svelte';
 
+  // Folded to a strip on a wide screen; a phone always shows the full menu.
+  const collapsed = $derived(appearance.sidebarCollapsed && !ui.narrow);
+
   // Sections by topic. Feeds without a topic come last, under "Other" once any feed has one.
   const hasTopics = $derived(reader.feeds.some((f) => f.category !== ''));
   const grouped = $derived(appearance.groupByTopic && hasTopics);
@@ -19,11 +22,39 @@
   });
 </script>
 
-<nav class="sidebar" aria-label="Feeds">
+<nav class="sidebar" class:collapsed aria-label="Feeds">
   <div class="brand">
     <Logo size={30} />
-    <span>Huginn</span>
+    {#if !collapsed}<span>Huginn</span>{/if}
+    {#if !ui.narrow}
+      <button
+        class="icon fold"
+        type="button"
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-expanded={!collapsed}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        onclick={() => appearance.setSidebarCollapsed(!collapsed)}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" />
+        </svg>
+      </button>
+    {/if}
   </div>
+
+  {#if collapsed}
+    <div class="foot">
+      <button class="icon" type="button" aria-label="Add feed" title="Add feed" onclick={() => (reader.addOpen = true)}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+      </button>
+      <a class="icon" href="/settings" use:link aria-label="Settings" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" /></svg>
+      </a>
+      <button class="icon" type="button" aria-label="Sign out" title="Sign out" onclick={() => session.logout()}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+      </button>
+    </div>
+  {:else}
 
   <ul>
     <li>
@@ -84,6 +115,7 @@
       </button>
     </div>
   </div>
+  {/if}
 </nav>
 
 <style>
@@ -97,6 +129,25 @@
     background: var(--surface);
     border-right: 1px solid var(--border);
     overflow-y: auto;
+  }
+  .sidebar.collapsed {
+    align-items: center;
+    padding: 16px 8px;
+  }
+  .sidebar.collapsed .brand {
+    flex-direction: column;
+    padding: 0 0 12px;
+  }
+  .sidebar.collapsed .foot {
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+  }
+  .fold {
+    margin-left: auto;
+  }
+  .sidebar.collapsed .fold {
+    margin-left: 0;
   }
   .brand {
     display: flex;
