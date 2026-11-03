@@ -71,11 +71,14 @@ async function addFeed(page, address) {
       await page.reload();
       await page.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
       assert.strictEqual(await page.getByRole('dialog').count(), 0, 'no picker on the next visit');
-      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: 'Starter feeds' }).click();
+      await page.goto('/settings');
+      await page.getByRole('button', { name: 'Browse starter feeds' }).click();
       const dialog = page.getByRole('dialog', { name: 'Start with a few feeds' });
       await dialog.waitFor();
       assert.strictEqual(await dialog.getByRole('button', { name: 'Cancel' }).count(), 1);
       await dialog.getByRole('button', { name: 'Cancel' }).click();
+      await page.goto('/');
+      await page.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
     });
 
     await step('adding something that is not a feed explains why', async () => {
