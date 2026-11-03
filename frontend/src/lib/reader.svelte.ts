@@ -48,6 +48,7 @@ class Reader {
 
   // Bumped by every list or article load, so a slow answer to an old request is ignored.
   private listToken = 0;
+  private feedsToken = 0;
   private itemToken = 0;
   // Bumped by reset(), so work started for a user who has since signed out stops.
   private generation = 0;
@@ -108,13 +109,14 @@ class Reader {
     if (this.polling || document.hidden || this.loadingList || this.loadingMore || this.refreshing || this.refreshingFeedId !== null) return;
     const generation = this.generation;
     const token = this.listToken;
+    const feedsToken = ++this.feedsToken;
     const shown = this.items.length;
     this.polling = true;
     try {
       const [{ feeds }, page] = await Promise.all([api.feeds(), api.items({ feedId: this.feedId, unreadOnly: this.unreadOnly })]);
       // Ignore the answer if the user signed out or changed the list while it was on its way.
       if (generation !== this.generation || token !== this.listToken || this.loadingList) return;
-      this.feeds = feeds;
+      if (feedsToken === this.feedsToken) this.feeds = feeds;
       const known = new Set(this.items.map((i) => i.id));
       const fresh = page.items.filter((i) => !known.has(i.id)).length;
       if (fresh === 0) return;
@@ -172,8 +174,11 @@ class Reader {
 
 
   async loadFeeds() {
+    const token = ++this.feedsToken;
     try {
-      this.feeds = (await api.feeds()).feeds;
+      const { feeds } = await api.feeds();
+      // An answer to an older request must not undo a newer one, or a change just saved.
+      if (token === this.feedsToken) this.feeds = feeds;
     } catch (e) {
       this.listError = message(e);
     }
@@ -296,7 +301,9 @@ class Reader {
     if (!feed) return;
     try {
       const { feed: updated } = await api.setFeedFullText(id, on);
-      feed.fullText = updated.fullText;
+      this.feedsToken++;
+      const current = this.feeds.find((f) => f.id === id);
+      if (current) current.fullText = updated.fullText;
       this.notify(on ? `Full articles will load by themselves in ${feed.title}` : `Stopped loading full articles in ${feed.title}`);
       if (on && this.selected?.feedId === id) void this.loadFull();
     } catch (e) {
@@ -431,7 +438,10 @@ class Reader {
     if (!feed || feed.category === category.trim()) return;
     try {
       const { feed: updated } = await api.setFeedCategory(id, category);
-      feed.category = updated.category;
+      this.feedsToken++; // a reload that started before this save would bring the old topic back
+      // The list may have been reloaded while saving, so write to the current object, not the one found earlier.
+      const current = this.feeds.find((f) => f.id === id);
+      if (current) current.category = updated.category;
       this.notify(updated.category ? `${feed.title} is now under ${updated.category}` : `${feed.title} has no topic now`);
     } catch (e) {
       this.notify(message(e), 'error');
