@@ -273,9 +273,16 @@ async function addFeed(page, address) {
       assert.strictEqual(await nav.getByRole('button', { name: 'Group by topic' }).count(), 0, 'no toggle while no feed has a topic');
       await nav.getByRole('button', { name: /^Field Notes/ }).click();
       await page.getByRole('heading', { name: 'Field Notes', level: 1 }).waitFor();
+      // Slow the save, and reload the feed list while it is on its way: the topic must not be lost.
+      await page.route('**/api/feeds/*', async (route) => {
+        if (route.request().method() === 'PATCH') await new Promise((r) => setTimeout(r, 1500));
+        await route.continue();
+      });
       await page.getByLabel('Topic').fill('Reading');
       await page.getByLabel('Topic').press('Enter');
+      await page.getByRole('button', { name: 'Refresh', exact: true }).click();
       await page.getByText('Field Notes is now under Reading').waitFor();
+      await page.unroute('**/api/feeds/*');
       await nav.getByText('Reading', { exact: true }).waitFor();
       await nav.getByText('Other', { exact: true }).waitFor();
       // Turning grouping off brings the single list back, and the choice sticks.

@@ -11,6 +11,9 @@ const message = (e: unknown) => (e instanceof ApiError ? e.message : 'Something 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** How often the open page quietly looks for new articles. The server fetches each feed every 30 minutes. */
+const POLL_MS = 2 * 60 * 1000;
+
 class Reader {
   feeds = $state<Feed[]>([]);
   items = $state<Item[]>([]);
@@ -47,11 +50,14 @@ class Reader {
 
   // Bumped by every list or article load, so a slow answer to an old request is ignored.
   private listToken = 0;
+  private feedsToken = 0;
   private itemToken = 0;
   // Bumped by reset(), so work started for a user who has since signed out stops.
   private generation = 0;
   private toastId = 0;
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
+  private pollTimer: ReturnType<typeof setInterval> | undefined;
+  private polling = false;
 
   constructor() {
     // The phone's Back button, and a swipe back, move between the panes.
@@ -60,6 +66,10 @@ class Reader {
         const was = this.pane;
         this.pane = (e.state as { pane?: Pane } | null)?.pane ?? 'list';
         if (was === 'article' && this.pane !== 'article') this.dropReadSelection();
+      });
+      // Coming back to a tab that has been in the background looks for news straight away.
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && this.pollTimer !== undefined) void this.poll();
       });
     }
   }
@@ -81,11 +91,58 @@ class Reader {
       }
       this.pane = 'list';
     }
+    this.startPolling();
     await Promise.all([this.loadFeeds(), this.loadItems()]);
+  }
+
+  private startPolling() {
+    if (this.pollTimer === undefined) this.pollTimer = setInterval(() => void this.poll(), POLL_MS);
+  }
+
+  private stopPolling() {
+    clearInterval(this.pollTimer);
+    this.pollTimer = undefined;
+  }
+
+  /**
+   * Quietly looks for new articles. It never shows errors or a spinner. Unread counts always update.
+   * The list is replaced only when it still shows just the first page, so a reader who has scrolled
+   * on or loaded more is not disturbed; they get a note instead.
+   */
+  async poll() {
+    if (this.polling || document.hidden || this.loadingList || this.loadingMore || this.refreshing || this.refreshingFeedId !== null) return;
+    const generation = this.generation;
+    const token = this.listToken;
+    const feedsToken = ++this.feedsToken;
+    const shown = this.items.length;
+    this.polling = true;
+    try {
+      const [{ feeds }, page] = await Promise.all([api.feeds(), api.items({ feedId: this.feedId, unreadOnly: this.unreadOnly })]);
+      // Ignore the answer if the user signed out or changed the list while it was on its way.
+      if (generation !== this.generation || token !== this.listToken || this.loadingList) return;
+      if (feedsToken === this.feedsToken) this.feeds = feeds;
+      const known = new Set(this.items.map((i) => i.id));
+      const fresh = page.items.filter((i) => !known.has(i.id)).length;
+      if (fresh === 0) return;
+      if (!this.next || shown <= page.items.length) {
+        // Only the first page is loaded (or everything fits in it): swap it in place.
+        this.items = page.items;
+        this.next = page.next;
+        this.listError = '';
+      } else {
+        this.notify(`${plural(fresh, 'new article', 'new articles')}. Refresh the list to see ${fresh === 1 ? 'it' : 'them'}.`);
+      }
+    } catch {
+      // A missed poll is not worth interrupting anyone; the next one tries again.
+    } finally {
+      this.polling = false;
+    }
   }
 
   /** Forgets everything. Called when the user signs out, so the next person sees none of it. */
   reset() {
+    this.stopPolling();
+    this.polling = false;
     this.generation++;
     this.listToken++;
     this.itemToken++;
@@ -121,8 +178,11 @@ class Reader {
 
 
   async loadFeeds() {
+    const token = ++this.feedsToken;
     try {
-      this.feeds = (await api.feeds()).feeds;
+      const { feeds } = await api.feeds();
+      // An answer to an older request must not undo a newer one, or a change just saved.
+      if (token === this.feedsToken) this.feeds = feeds;
     } catch (e) {
       this.listError = message(e);
     }
@@ -256,7 +316,9 @@ class Reader {
     if (!feed) return;
     try {
       const { feed: updated } = await api.setFeedFullText(id, on);
-      feed.fullText = updated.fullText;
+      this.feedsToken++;
+      const current = this.feeds.find((f) => f.id === id);
+      if (current) current.fullText = updated.fullText;
       this.notify(on ? `Full articles will load by themselves in ${feed.title}` : `Stopped loading full articles in ${feed.title}`);
       if (on && this.selected?.feedId === id) void this.loadFull();
     } catch (e) {
@@ -391,7 +453,10 @@ class Reader {
     if (!feed || feed.category === category.trim()) return;
     try {
       const { feed: updated } = await api.setFeedCategory(id, category);
-      feed.category = updated.category;
+      this.feedsToken++; // a reload that started before this save would bring the old topic back
+      // The list may have been reloaded while saving, so write to the current object, not the one found earlier.
+      const current = this.feeds.find((f) => f.id === id);
+      if (current) current.category = updated.category;
       this.notify(updated.category ? `${feed.title} is now under ${updated.category}` : `${feed.title} has no topic now`);
     } catch (e) {
       this.notify(message(e), 'error');
