@@ -147,6 +147,7 @@ export const api = {
   item: (id: number) => request<{ item: ItemDetail }>('GET', `/api/items/${id}`),
   /** Fetches the article's own page and keeps the readable text. */
   loadFullText: (id: number) => request<{ item: ItemDetail }>('POST', `/api/items/${id}/full`),
+  unloadFullText: (id: number) => request<{ item: ItemDetail }>('DELETE', `/api/items/${id}/full`),
   setRead: (id: number, read: boolean) => request<void>('PUT', `/api/items/${id}/read`, json({ read })),
   readAll: (feedId?: number | null) =>
     request<{ marked: number }>('POST', '/api/read-all', json(feedId ? { feedId } : {})),

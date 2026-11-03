@@ -75,7 +75,10 @@
       {#if reader.loadingFull}
         <p class="fullnote" role="status">Loading the full article…</p>
       {:else if item.fullText}
-        <p class="fullnote">Showing the full article{host(item.url) ? ` from ${host(item.url)}` : ''}.</p>
+        <p class="fullnote">
+          Showing the full article{host(item.url) ? ` from ${host(item.url)}` : ''}.
+          <button class="linkbtn" onclick={() => reader.unloadFull()}>Unload full article</button>
+        </p>
       {/if}
       <!-- Sanitized by the server with an allow-list before it is sent. -->
       <div class="content" use:enhance={item.content}>{@html item.content}</div>
@@ -204,6 +207,16 @@
     margin: -20px 0 24px;
     font-size: 13px;
     color: var(--muted);
+  }
+  .linkbtn {
+    margin-left: 6px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font-size: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
   .loadfull {
     margin: 16px 0 0 -8px;

@@ -32,7 +32,7 @@
 - **Several users.** Each has their own feeds and read state. The first account is the administrator and adds the others.
 - **Safe to read.** Article HTML is cleaned with an allow-list before it is shown: no scripts, frames, forms or styles, and links open in a new tab without handing over the page.
 - **Polite to the sites it follows.** Conditional requests so unchanged feeds cost almost nothing, one request at a time per site, a size limit, and a longer wait after repeated failures.
-- **Full articles.** Many feeds share only a short summary. Huginn says so, and one click on **Load full article** (or the `f` key) reads the article from its own page, keeping it so the page is fetched once. A feed can be set to do this by itself as you open its articles.
+- **Full articles.** Many feeds share only a short summary. Huginn says so, and one click on **Load full article** (or the `f` key) reads the article from its own page, keeping it so the page is fetched once. **Unload full article** goes back to the feed's version. A feed can be set to do this by itself as you open its articles.
 - **Keyboard shortcuts.** `j` and `k` move between articles, `m` marks read or unread, `o` opens the original, `f` loads the full article and `r` refreshes. They can be switched off in Settings.
 - **Light and dark**, following the device or set by you.
 - **Accessible.** Every screen passes an automated axe check in both themes, on a phone and a desktop.

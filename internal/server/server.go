@@ -67,6 +67,7 @@ func (s *server) routes(assets fs.FS) http.Handler {
 	mux.Handle("GET /api/items", s.authed(false, s.listItems))
 	mux.Handle("GET /api/items/{id}", s.authed(false, s.getItem))
 	mux.Handle("POST /api/items/{id}/full", s.authed(false, s.loadFullText))
+	mux.Handle("DELETE /api/items/{id}/full", s.authed(false, s.unloadFullText))
 	mux.Handle("PUT /api/items/{id}/read", s.authed(false, s.setRead))
 	mux.Handle("POST /api/read-all", s.authed(false, s.markAllRead))
 

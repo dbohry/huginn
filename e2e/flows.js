@@ -255,6 +255,13 @@ async function addFeed(page, address) {
       await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Summary Only Feed/ }).click();
       await page.getByRole('button', { name: /Summary story 1\b/ }).click();
       await page.getByText(/Showing the full article from/).waitFor();
+
+      // It can be unloaded, which brings back the feed's summary and the offer to load it again.
+      await page.getByRole('button', { name: 'Unload full article' }).click();
+      await page.getByText('This is only the summary the feed provides.').waitFor();
+      assert.ok(!(await page.locator('.content').innerText()).includes('The full text of story 1'), 'the full text stayed after unloading');
+      await page.getByRole('button', { name: 'Load full article' }).click();
+      await page.getByText(/Showing the full article from/).waitFor();
     });
 
     await step('the f key loads the full article, and a feed can do it by itself', async () => {
