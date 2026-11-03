@@ -118,14 +118,14 @@ async function addFeed(page, address) {
       assert.strictEqual(await unreadOf(page, 'Field Notes'), 3);
     });
 
-    await step('"Unread only" hides what has been read', async () => {
+    await step('the Unread filter hides what has been read', async () => {
       await page.getByRole('button', { name: /Walking the long way/ }).click();
       await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
-      await page.getByLabel('Unread only').check();
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Unread/ }).click();
       await page.waitForFunction(() => document.querySelectorAll('.item').length === 2);
       const titles = (await page.locator('.item .title').allInnerTexts()).sort();
       assert.deepStrictEqual(titles, ['A week with only a paper calendar', 'Notes on keeping a notebook']);
-      await page.getByLabel('Unread only').uncheck();
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'All' }).click();
       await page.waitForFunction(() => document.querySelectorAll('.item').length === 3);
     });
 

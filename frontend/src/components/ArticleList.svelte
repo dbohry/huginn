@@ -14,6 +14,17 @@
     reader.unreadOnly ? 'Nothing unread. You are all caught up.' : feed ? 'No articles in this feed yet.' : 'No articles yet.',
   );
 
+  // Unread articles in what is shown: the open feed, or every feed.
+  const unreadCount = $derived(feed ? feed.unread : reader.totalUnread);
+
+  // Bumped once the list for a new filter has arrived, so the rows ease in then, not before.
+  let swap = $state(0);
+  async function choose(unreadOnly: boolean) {
+    if (unreadOnly === reader.unreadOnly) return;
+    await reader.setUnreadOnly(unreadOnly);
+    swap++;
+  }
+
   // Loads the next page when the end of the list scrolls close, so there is no button to hunt for.
   // The sentinel is recreated after every page, so a page that is still short of the end loads the next.
   function nearEnd(node: HTMLElement) {
@@ -46,11 +57,16 @@
 
   {#if !firstRun}
     <div class="tools">
-      <label class="check">
-        <input type="checkbox" checked={reader.unreadOnly} onchange={(e) => reader.setUnreadOnly(e.currentTarget.checked)} />
-        Unread only
-      </label>
-      <button class="small" aria-label={feed ? `Mark all read in ${feed.title}` : undefined} onclick={() => reader.markAllRead()}>
+      <div class="seg" role="group" aria-label="Show" class:all={!reader.unreadOnly}>
+        <span class="thumb" aria-hidden="true"></span>
+        <button type="button" aria-pressed={reader.unreadOnly} onclick={() => choose(true)}>
+          Unread
+          {#if unreadCount > 0}<span class="n">{unreadCount}</span>{/if}
+        </button>
+        <button type="button" aria-pressed={!reader.unreadOnly} onclick={() => choose(false)}>All</button>
+      </div>
+      <button class="small markall" aria-label={feed ? `Mark all read in ${feed.title}` : undefined} onclick={() => reader.markAllRead()}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12l5 5L18 6" /><path d="M12 17l1 1L22 7" /></svg>
         Mark all read
       </button>
     </div>
@@ -113,7 +129,8 @@
       </div>
     </div>
   {:else}
-    <ul>
+    {#key swap}
+    <ul class:swap={swap > 0}>
       {#each reader.items as item (item.id)}
         <li>
           <button
@@ -135,6 +152,7 @@
         </li>
       {/each}
     </ul>
+    {/key}
 
     {#if reader.loadingList && reader.items.length === 0}
       <p class="empty" role="status">Loading…</p>
@@ -229,12 +247,85 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 8px 0 16px;
+    gap: 8px;
+    padding: 6px 8px 6px 16px;
     border-bottom: 1px solid var(--border);
   }
-  .tools .check {
-    min-height: 44px;
+  /* Two-way switch. The thumb slides between the halves. */
+  .seg {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 3px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .seg button {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 34px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--muted);
     font-size: 13px;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  .seg button[aria-pressed='true'] {
+    color: var(--text);
+  }
+  .thumb {
+    position: absolute;
+    top: 3px;
+    bottom: 3px;
+    left: 3px;
+    width: calc(50% - 3px);
+    border-radius: 7px;
+    background: var(--bg);
+    box-shadow: 0 0 0 1px var(--border);
+    transition: transform 0.25s cubic-bezier(0.3, 0.9, 0.3, 1);
+  }
+  .seg.all .thumb {
+    transform: translateX(100%);
+  }
+  .n {
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+  .markall {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-color: transparent;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .swap {
+    animation: swap 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  @keyframes swap {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .thumb,
+    .seg button {
+      transition: none;
+    }
+    .swap {
+      animation: none;
+    }
   }
   .small {
     min-height: 36px;
