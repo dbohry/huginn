@@ -118,10 +118,10 @@ async function addFeed(page, address) {
       assert.strictEqual(await unreadOf(page, 'Field Notes'), 3);
     });
 
-    await step('"Unread only" hides what has been read, but only once something else is opened', async () => {
+    await step('the Unread filter hides what has been read, but only once something else is opened', async () => {
       await page.getByRole('button', { name: /Walking the long way/ }).click();
       await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
-      await page.getByLabel('Unread only').check();
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Unread/ }).click();
       // The article being read stays in the list, read, for as long as it is open.
       await page.waitForFunction(() => document.querySelectorAll('.item').length === 3);
       assert.ok((await page.locator('.item .title').allInnerTexts()).includes('Walking the long way to the station'));
@@ -134,7 +134,7 @@ async function addFeed(page, address) {
       // Put the calendar article back to unread, so the later steps start from what they expect.
       await page.getByRole('button', { name: 'Mark unread' }).click();
       await page.getByRole('button', { name: 'Mark read' }).waitFor();
-      await page.getByLabel('Unread only').uncheck();
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'All' }).click();
       await page.waitForFunction(() => document.querySelectorAll('.item').length === 3);
       await page.getByRole('button', { name: /Walking the long way/ }).click();
       await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
