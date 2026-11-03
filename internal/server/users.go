@@ -15,8 +15,7 @@ type userSummary struct {
 	Username           string `json:"username"`
 	IsAdmin            bool   `json:"isAdmin"`
 	MustChangePassword bool   `json:"mustChangePassword"`
-	// LastSeenAt is Unix seconds, or null if the user has never signed in.
-	LastSeenAt *int64 `json:"lastSeenAt"`
+	LastSeenAt         *int64 `json:"lastSeenAt"` // Unix seconds; null if never signed in
 }
 
 func toSummary(u store.User) userSummary {

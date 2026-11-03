@@ -3,11 +3,9 @@ export type User = {
   username: string;
   isAdmin: boolean;
   mustChangePassword: boolean;
-  /** False until the user has been offered the starter feeds. */
   starterDone: boolean;
 };
 
-/** A subscribed feed. `title` falls back to the site's host. */
 export type Feed = {
   id: number;
   url: string;
@@ -16,19 +14,14 @@ export type Feed = {
   unread: number;
   /** Unix seconds, or null if the feed has not been fetched yet. */
   lastFetchedAt: number | null;
-  /** The last fetch error, or "" when the last fetch worked. */
   error: string;
-  /** Load the full article automatically when one of this feed's articles is opened. */
   fullText: boolean;
-  /** The topic the feed is filed under, or "" for none. */
   category: string;
 };
 
-/** A feed suggested to new users. */
 export type StarterFeed = { id: number; title: string; url: string; followed: boolean };
 export type StarterTopic = { name: string; feeds: StarterFeed[] };
 
-/** An article in a list. */
 export type Item = {
   id: number;
   feedId: number;
@@ -37,9 +30,7 @@ export type Item = {
   /** The address of the original article, or "" if the feed gave none. */
   url: string;
   author: string;
-  /** Unix seconds. */
   publishedAt: number;
-  /** Plain text, cut short. */
   snippet: string;
   unread: boolean;
 };
@@ -49,11 +40,9 @@ export type ItemDetail = Item & {
   content: string;
   /** True when `content` is the full article loaded from its own page, not what the feed gave. */
   fullText: boolean;
-  /** True when the feed gave nothing but a short summary. */
   summaryOnly: boolean;
 };
 
-/** A row on the Users screen. */
 export type UserSummary = {
   id: number;
   username: string;

@@ -12,7 +12,6 @@ export function ago(unixSeconds: number, now = Date.now() / 1000): string {
   return new Date(unixSeconds * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/** A full date and time for the reading pane. */
 export function when(unixSeconds: number): string {
   return new Date(unixSeconds * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
@@ -21,7 +20,6 @@ export function when(unixSeconds: number): string {
 export function since(label: string, unixSeconds: number, now = Date.now() / 1000): string {
   const age = ago(unixSeconds, now);
   if (age === 'now') return `${label} just now`;
-  // "12m", "3h" and "2d" read as "12m ago"; anything older shows its date.
   return /^\d+[mhd]$/.test(age) ? `${label} ${age} ago` : `${label} ${age}`;
 }
 

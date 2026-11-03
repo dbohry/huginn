@@ -27,11 +27,8 @@ type User struct {
 	IsAdmin            bool
 	MustChangePassword bool
 	CreatedAt          time.Time
-	// LastSeenAt is the zero time when the user has never signed in.
-	LastSeenAt time.Time
-	// StarterDone is true once the user has been offered the starter feeds and
-	// either taken some or declined.
-	StarterDone bool
+	LastSeenAt         time.Time // zero if never signed in
+	StarterDone        bool      // offered the starter feeds, and took or declined them
 }
 
 const userColumns = `id, username, password_hash, is_admin, must_change_password, created_at, last_seen_at, starter_done`

@@ -37,11 +37,10 @@ func starterRows(in []starter.Feed) []store.StarterFeed {
 }
 
 type starterFeedJSON struct {
-	ID    int64  `json:"id"`
-	Title string `json:"title"`
-	URL   string `json:"url"`
-	// Followed is true when the signed-in user already follows the feed.
-	Followed bool `json:"followed"`
+	ID       int64  `json:"id"`
+	Title    string `json:"title"`
+	URL      string `json:"url"`
+	Followed bool   `json:"followed"` // by the signed-in user
 }
 
 type starterTopicJSON struct {

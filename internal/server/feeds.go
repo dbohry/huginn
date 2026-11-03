@@ -20,19 +20,15 @@ const addFeedTimeout = 25 * time.Second
 
 // feedJSON is a feed as the interface sees it.
 type feedJSON struct {
-	ID      int64  `json:"id"`
-	URL     string `json:"url"`
-	Title   string `json:"title"`
-	SiteURL string `json:"siteUrl"`
-	Unread  int    `json:"unread"`
-	// LastFetchedAt is Unix seconds, or null if the feed was never fetched.
-	LastFetchedAt *int64 `json:"lastFetchedAt"`
-	// Error is the last fetch error, or empty when the last fetch worked.
-	Error string `json:"error"`
-	// FullText is true when full articles are loaded automatically as they are opened.
-	FullText bool `json:"fullText"`
-	// Category is the topic the feed is filed under, or empty for none.
-	Category string `json:"category"`
+	ID            int64  `json:"id"`
+	URL           string `json:"url"`
+	Title         string `json:"title"`
+	SiteURL       string `json:"siteUrl"`
+	Unread        int    `json:"unread"`
+	LastFetchedAt *int64 `json:"lastFetchedAt"` // Unix seconds; null if never fetched
+	Error         string `json:"error"`         // last fetch error, or empty
+	FullText      bool   `json:"fullText"`
+	Category      string `json:"category"`
 }
 
 func toFeedJSON(f store.FeedSummary) feedJSON {

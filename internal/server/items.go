@@ -29,30 +29,23 @@ const (
 
 // itemJSON is an article in a list.
 type itemJSON struct {
-	ID        int64  `json:"id"`
-	FeedID    int64  `json:"feedId"`
-	FeedTitle string `json:"feedTitle"`
-	Title     string `json:"title"`
-	URL       string `json:"url"`
-	Author    string `json:"author"`
-	// PublishedAt is Unix seconds.
-	PublishedAt int64 `json:"publishedAt"`
-	// Snippet is plain text, cut short.
-	Snippet string `json:"snippet"`
-	Unread  bool   `json:"unread"`
+	ID          int64  `json:"id"`
+	FeedID      int64  `json:"feedId"`
+	FeedTitle   string `json:"feedTitle"`
+	Title       string `json:"title"`
+	URL         string `json:"url"`
+	Author      string `json:"author"`
+	PublishedAt int64  `json:"publishedAt"` // Unix seconds
+	Snippet     string `json:"snippet"`     // plain text, cut short
+	Unread      bool   `json:"unread"`
 }
 
 // itemDetailJSON is one article opened for reading.
 type itemDetailJSON struct {
 	itemJSON
-	// Content is sanitized HTML, safe to insert into the page.
-	Content string `json:"content"`
-	// FullText is true when Content is the full article loaded from its own page, not
-	// what the feed gave.
-	FullText bool `json:"fullText"`
-	// SummaryOnly is true when the feed gave nothing but a short summary, so the full
-	// article is only on the site.
-	SummaryOnly bool `json:"summaryOnly"`
+	Content     string `json:"content"`     // sanitized HTML
+	FullText    bool   `json:"fullText"`    // Content is the article loaded from its own page
+	SummaryOnly bool   `json:"summaryOnly"` // the feed gave only a short summary
 }
 
 // detailJSON prepares an article for reading: the full article if one has been

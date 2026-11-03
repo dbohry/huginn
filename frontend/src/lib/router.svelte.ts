@@ -1,4 +1,3 @@
-/** A very small history-based router. Screens read `router.path`. */
 class Router {
   path = $state(location.pathname);
 
