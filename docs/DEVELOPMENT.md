@@ -1,6 +1,6 @@
 # Development
 
-You need Go 1.26 and Node 22. `make help` lists the targets:
+You need Go 1.26 and Node 26. `make help` lists the targets:
 
 | Command | What it does |
 |---|---|

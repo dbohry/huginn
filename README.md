@@ -10,6 +10,13 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/dbohry/huginn/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/dbohry/huginn/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/dbohry/huginn/actions/workflows/release.yml"><img alt="Release" src="https://github.com/dbohry/huginn/actions/workflows/release.yml/badge.svg"></a>
+  <a href="https://hub.docker.com/r/dbohry/huginn"><img alt="Docker pulls" src="https://img.shields.io/docker/pulls/dbohry/huginn"></a>
+  <a href="https://hub.docker.com/r/dbohry/huginn"><img alt="Image size" src="https://img.shields.io/docker/image-size/dbohry/huginn/latest"></a>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/reader-light.png" alt="Huginn, light theme" width="49%">
   <img src="docs/screenshots/reader-dark.png" alt="Huginn, dark theme" width="49%">
 </p>
