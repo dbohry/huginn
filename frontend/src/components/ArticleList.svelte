@@ -145,7 +145,17 @@
     min-width: 0;
     min-height: 0;
     border-right: 1px solid var(--border);
+    overflow-x: hidden;
     overflow-y: auto;
+  }
+  /* Nothing inside may push the list wider than its pane. On iOS Safari a single over-wide
+     row makes the whole page pan sideways. */
+  .list > :global(*) {
+    min-width: 0;
+    max-width: 100%;
+  }
+  li {
+    min-width: 0;
   }
   header {
     display: flex;
@@ -198,6 +208,7 @@
     }
   }
   .tools {
+    flex-wrap: wrap;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -284,6 +295,8 @@
     flex-direction: column;
     gap: 6px;
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
     padding: 14px 16px 14px 30px;
     border: 0;
     border-bottom: 1px solid var(--border);
@@ -308,6 +321,7 @@
     background: var(--accent);
   }
   .meta {
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -335,6 +349,9 @@
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    overflow-wrap: anywhere;
+    min-width: 0;
+    max-width: 100%;
     font-size: 13px;
     line-height: 1.45;
     color: var(--muted);

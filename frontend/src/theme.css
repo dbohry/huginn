@@ -58,6 +58,13 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Never let the page pan sideways on a phone. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 button,
 input,
 select {

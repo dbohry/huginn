@@ -96,6 +96,8 @@
     grid-template-columns: 240px minmax(300px, 380px) minmax(0, 1fr);
     height: 100vh;
     height: 100dvh;
+    width: 100%;
+    max-width: 100vw;
   }
   @media (max-width: 899px) {
     .app {
