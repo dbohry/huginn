@@ -7,6 +7,7 @@
   import StarterDialog from '../components/StarterDialog.svelte';
   import Toast from '../components/Toast.svelte';
   import { appearance } from '../lib/appearance.svelte';
+  import { arrowNav } from '../lib/keynav';
   import { reader } from '../lib/reader.svelte';
   import { session } from '../lib/session.svelte';
   import { ui } from '../lib/ui.svelte';
@@ -32,6 +33,11 @@
   }
 
   function onkeydown(e: KeyboardEvent) {
+    if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.startsWith('Arrow') && !e.shiftKey && !typing(e.target) && !document.querySelector('dialog[open]')) {
+      if (arrowNav(e)) e.preventDefault();
+      return;
+    }
     if (!appearance.shortcuts || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
     if (typing(e.target) || document.querySelector('dialog[open]')) return;
     switch (e.key) {

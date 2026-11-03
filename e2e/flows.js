@@ -165,6 +165,57 @@ async function addFeed(page, address) {
       await page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 }).waitFor();
     });
 
+    await step('arrow down and up scroll the article when nothing has focus', async () => {
+      await page.evaluate(() => {
+        document.activeElement?.blur();
+        const spacer = document.createElement('div');
+        spacer.id = 'e2e-spacer';
+        spacer.style.height = '3000px';
+        document.querySelector('section.pane[aria-label="Article"] article').append(spacer);
+      });
+      const top = () => page.evaluate(() => document.querySelector('section.pane[aria-label="Article"]').scrollTop);
+      assert.strictEqual(await top(), 0);
+      await page.keyboard.press('ArrowDown');
+      await page.waitForFunction(() => document.querySelector('section.pane[aria-label="Article"]').scrollTop > 0);
+      await page.keyboard.press('ArrowUp');
+      await page.waitForFunction(() => document.querySelector('section.pane[aria-label="Article"]').scrollTop === 0);
+      await page.evaluate(() => document.getElementById('e2e-spacer').remove());
+    });
+
+    await step('arrow keys move between the panes and within them', async () => {
+      const focused = () =>
+        page.evaluate(() => {
+          const el = document.activeElement;
+          return el === document.body ? 'body' : `${el.tagName.toLowerCase()}|${el.className}|${el.getAttribute('aria-label') ?? ''}|${el.textContent.slice(0, 30)}`;
+        });
+      const walking = page.getByRole('heading', { name: 'Walking the long way to the station', level: 2 });
+      // From the article, left goes to the open article in the list, left again to the feed.
+      await page.keyboard.press('ArrowLeft');
+      await page.waitForFunction(() => document.activeElement?.matches('.item.active'));
+      await page.keyboard.press('ArrowLeft');
+      await page.waitForFunction(() => document.activeElement?.matches('nav.sidebar .row.active'));
+      // Up and down move over the feeds without choosing one.
+      await page.keyboard.press('ArrowUp');
+      await page.waitForFunction(() => document.activeElement?.matches('nav.sidebar .row') && /All items/.test(document.activeElement.textContent));
+      await page.keyboard.press('ArrowDown');
+      await page.waitForFunction(() => document.activeElement?.matches('nav.sidebar .row.active'));
+      // Right opens the feed's articles and moves into them.
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction(() => document.activeElement?.matches('.item.active'));
+      // Down and up step through the articles, as j and k do.
+      await page.keyboard.press('ArrowDown');
+      await page.getByRole('heading', { name: 'Notes on keeping a notebook', level: 2 }).waitFor();
+      await page.waitForFunction(() => document.activeElement?.matches('.item.active'));
+      await page.keyboard.press('ArrowUp');
+      await walking.waitFor();
+      await page.waitForFunction(() => document.activeElement?.matches('.item.active'));
+      // Right goes on into the article.
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction(() => document.activeElement?.matches('section.pane[aria-label="Article"]'), null, { timeout: 5000 }).catch(async () => {
+        throw new Error(`focus is on ${await focused()}`);
+      });
+    });
+
     await step('"Mark all read" clears the counts for the feed', async () => {
       await page.getByRole('button', { name: 'Mark all read' }).click();
       await page.getByText(/\d+ articles? marked read in Field Notes/).waitFor(); // and says so
