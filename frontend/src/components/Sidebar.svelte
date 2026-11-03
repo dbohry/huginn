@@ -67,7 +67,6 @@
 
   <div class="foot">
     <button class="button" onclick={() => (reader.addOpen = true)}>Add feed</button>
-    <button class="plain starter" onclick={() => (reader.starterOpen = true)}>Starter feeds</button>
     <div class="links">
       <a href="/settings" use:link>Settings</a>
       <button class="plain" onclick={() => session.logout()}>Sign out</button>
@@ -138,9 +137,6 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--muted);
-  }
-  .starter {
-    align-self: flex-start;
   }
   .heading:focus {
     outline: none;
