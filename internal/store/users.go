@@ -29,15 +29,18 @@ type User struct {
 	CreatedAt          time.Time
 	// LastSeenAt is the zero time when the user has never signed in.
 	LastSeenAt time.Time
+	// StarterDone is true once the user has been offered the starter feeds and
+	// either taken some or declined.
+	StarterDone bool
 }
 
-const userColumns = `id, username, password_hash, is_admin, must_change_password, created_at, last_seen_at`
+const userColumns = `id, username, password_hash, is_admin, must_change_password, created_at, last_seen_at, starter_done`
 
 func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var created int64
 	var seen sql.NullInt64
-	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &u.MustChangePassword, &created, &seen)
+	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &u.MustChangePassword, &created, &seen, &u.StarterDone)
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -196,7 +199,7 @@ func (s *Store) SessionUser(ctx context.Context, tokenHash string, now time.Time
 	var expires int64
 	row := s.db.QueryRowContext(ctx,
 		`SELECT s.token_hash, s.user_id, s.persistent, s.expires_at,
-		        u.id, u.username, u.password_hash, u.is_admin, u.must_change_password, u.created_at, u.last_seen_at
+		        u.id, u.username, u.password_hash, u.is_admin, u.must_change_password, u.created_at, u.last_seen_at, u.starter_done
 		   FROM sessions s JOIN users u ON u.id = s.user_id
 		  WHERE s.token_hash = ? AND s.expires_at > ?`, tokenHash, now.Unix())
 
@@ -204,7 +207,7 @@ func (s *Store) SessionUser(ctx context.Context, tokenHash string, now time.Time
 	var created int64
 	var seen sql.NullInt64
 	err := row.Scan(&sess.TokenHash, &sess.UserID, &sess.Persistent, &expires,
-		&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &u.MustChangePassword, &created, &seen)
+		&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &u.MustChangePassword, &created, &seen, &u.StarterDone)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Session{}, User{}, ErrNotFound
 	}
@@ -245,4 +248,10 @@ func (s *Store) PurgeExpiredSessions(ctx context.Context, now time.Time) (int64,
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+// SetStarterDone records that the user has been offered the starter feeds.
+func (s *Store) SetStarterDone(ctx context.Context, id int64) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE users SET starter_done = 1 WHERE id = ?`, id)
+	return err
 }

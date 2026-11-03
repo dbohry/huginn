@@ -25,7 +25,7 @@ func (s *server) exportOPML(w http.ResponseWriter, r *http.Request, user store.U
 	}
 	list := make([]opml.Feed, len(feeds))
 	for i, f := range feeds {
-		list[i] = opml.Feed{Title: f.Title, URL: f.URL}
+		list[i] = opml.Feed{Title: f.Title, URL: f.URL, Category: f.Category}
 	}
 	w.Header().Set("Content-Type", "text/x-opml; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="huginn-subscriptions.opml"`)
@@ -61,7 +61,8 @@ func (s *server) importOPML(w http.ResponseWriter, r *http.Request, user store.U
 			invalid++
 			continue
 		}
-		switch _, err := s.store.CreateFeedWithTitle(r.Context(), user.ID, address, f.Title); {
+		category, _ := cleanCategory(f.Category)
+		switch _, err := s.store.CreateFeedInCategory(r.Context(), user.ID, address, f.Title, category); {
 		case errors.Is(err, store.ErrExists):
 			existing++
 		case err != nil:

@@ -18,6 +18,7 @@ const post = (page, p, body) =>
   const p0 = await admin.newPage();
   await p0.goto(BASE + '/');
   await post(p0, '/api/setup', { username: 'demo', password: 'demo-password-1' });
+  await p0.evaluate(() => fetch('/api/starter/dismiss', { method: 'POST' })); // the screenshots show the reader, not the offer
   for (const f of ['/fieldnotes.xml', '/systems.atom', '/gardens.xml']) await post(p0, '/api/feeds', { url: site.url + f });
   const state = await admin.storageState();
   await admin.close();

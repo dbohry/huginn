@@ -2,8 +2,21 @@
   import Logo from './Logo.svelte';
   import { link } from '../lib/router.svelte';
   import { reader } from '../lib/reader.svelte';
+  import { appearance } from '../lib/appearance.svelte';
   import { session } from '../lib/session.svelte';
   import { ui } from '../lib/ui.svelte';
+
+  // Sections by topic. Feeds without a topic come last, under "Other" once any feed has one.
+  const hasTopics = $derived(reader.feeds.some((f) => f.category !== ''));
+  const grouped = $derived(appearance.groupByTopic && hasTopics);
+  const sections = $derived.by(() => {
+    if (!grouped) return [{ name: '', feeds: reader.feeds }];
+    const by = new Map<string, typeof reader.feeds>();
+    for (const f of reader.feeds) by.set(f.category, [...(by.get(f.category) ?? []), f]);
+    return [...by.entries()]
+      .sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)))
+      .map(([name, feeds]) => ({ name: name || 'Other', feeds }));
+  });
 </script>
 
 <nav class="sidebar" aria-label="Feeds">
@@ -21,29 +34,40 @@
     </li>
   </ul>
 
-  <svelte:element this={ui.narrow ? 'h1' : 'h2'} class="heading" tabindex="-1">Feeds</svelte:element>
-  <ul class="feeds">
-    {#each reader.feeds as feed (feed.id)}
-      <li>
-        <button
-          class="row"
-          class:active={reader.feedId === feed.id}
-          aria-current={reader.feedId === feed.id ? 'true' : undefined}
-          title={feed.title}
-          onclick={() => reader.chooseFeed(feed.id)}
-        >
-          <span class="name">{feed.title}</span>
-          {#if feed.error}<span class="warn" title="The last fetch failed: {feed.error}"><span class="sr-only">Could not be fetched. </span>!</span>{/if}
-          {#if feed.unread > 0}<span class="count">{feed.unread}</span>{/if}
-        </button>
-      </li>
-    {:else}
-      <li class="empty">No feeds yet.</li>
-    {/each}
-  </ul>
+  <div class="headrow">
+    <svelte:element this={ui.narrow ? 'h1' : 'h2'} class="heading" tabindex="-1">Feeds</svelte:element>
+    {#if hasTopics}
+      <button class="group" aria-pressed={appearance.groupByTopic} onclick={() => appearance.setGroupByTopic(!appearance.groupByTopic)}>
+        Group by topic
+      </button>
+    {/if}
+  </div>
+  {#each sections as section (section.name)}
+    {#if section.name}<svelte:element this={ui.narrow ? 'h2' : 'h3'} class="topic">{section.name}</svelte:element>{/if}
+    <ul class="feeds">
+      {#each section.feeds as feed (feed.id)}
+        <li>
+          <button
+            class="row"
+            class:active={reader.feedId === feed.id}
+            aria-current={reader.feedId === feed.id ? 'true' : undefined}
+            title={feed.title}
+            onclick={() => reader.chooseFeed(feed.id)}
+          >
+            <span class="name">{feed.title}</span>
+            {#if feed.error}<span class="warn" title="The last fetch failed: {feed.error}"><span class="sr-only">Could not be fetched. </span>!</span>{/if}
+            {#if feed.unread > 0}<span class="count">{feed.unread}</span>{/if}
+          </button>
+        </li>
+      {:else}
+        <li class="empty">No feeds yet.</li>
+      {/each}
+    </ul>
+  {/each}
 
   <div class="foot">
     <button class="button" onclick={() => (reader.addOpen = true)}>Add feed</button>
+    <button class="plain starter" onclick={() => (reader.starterOpen = true)}>Starter feeds</button>
     <div class="links">
       <a href="/settings" use:link>Settings</a>
       <button class="plain" onclick={() => session.logout()}>Sign out</button>
@@ -85,11 +109,41 @@
     text-transform: uppercase;
     color: var(--muted);
   }
+  .headrow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .headrow .heading {
+    margin: 0 0 4px;
+  }
+  .group {
+    min-height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: transparent;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .group[aria-pressed='true'] {
+    background: var(--selected);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .topic {
+    margin: 10px 8px 2px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .starter {
+    align-self: flex-start;
+  }
   .heading:focus {
     outline: none;
-  }
-  .feeds {
-    flex: 1;
   }
   .row {
     display: flex;
@@ -149,6 +203,7 @@
     color: var(--muted);
   }
   .foot {
+    margin-top: auto;
     display: flex;
     flex-direction: column;
     gap: 8px;

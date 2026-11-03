@@ -71,6 +71,22 @@
         <span class="grow"></span>
         <button class="act danger" onclick={unfollow}>Unfollow</button>
       </div>
+      <div class="topicrow">
+        <label for="feed-topic">Topic</label>
+        {#key feed.id}
+          <input
+            id="feed-topic"
+            list="feed-topics"
+            maxlength="40"
+            value={feed.category}
+            placeholder="None"
+            onchange={(e) => reader.setFeedCategory(feed.id, e.currentTarget.value)}
+          />
+        {/key}
+        <datalist id="feed-topics">
+          {#each reader.topics as t (t)}<option value={t}></option>{/each}
+        </datalist>
+      </div>
       <label class="check auto">
         <input type="checkbox" checked={feed.fullText} onchange={(e) => reader.setFeedFullText(feed.id, e.currentTarget.checked)} />
         Load full articles automatically
@@ -92,6 +108,7 @@
       <p>Paste the address of a feed or of a website, and Huginn finds its feed. Coming from another reader? Import its OPML file.</p>
       <div class="firstactions">
         <button class="button" onclick={() => (reader.addOpen = true)}>Add feed</button>
+        <button class="button secondary" onclick={() => (reader.starterOpen = true)}>Browse starter feeds</button>
         <a class="button secondary" href="/settings" use:link>Import OPML</a>
       </div>
     </div>
@@ -254,6 +271,21 @@
   }
   .grow {
     flex: 1;
+  }
+  .topicrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .topicrow input {
+    flex: 1;
+    min-width: 0;
+    min-height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
   }
   .auto {
     min-height: 40px;

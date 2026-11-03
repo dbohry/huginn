@@ -45,9 +45,11 @@ type Feed struct {
 	NextFetchAt   *time.Time
 	// FullText loads the full article automatically when one of the feed's articles is opened.
 	FullText bool
+	// Category is the topic the feed is filed under, or "" for none.
+	Category string
 }
 
-const feedColumns = `id, user_id, url, title, site_url, etag, last_modified, last_fetched_at, last_error, error_count, next_fetch_at, full_text`
+const feedColumns = `id, user_id, url, title, site_url, etag, last_modified, last_fetched_at, last_error, error_count, next_fetch_at, full_text, category`
 
 type scanner interface{ Scan(dest ...any) error }
 
@@ -55,7 +57,7 @@ func scanFeed(row scanner) (Feed, error) {
 	var f Feed
 	var fetched, next sql.NullString
 	err := row.Scan(&f.ID, &f.UserID, &f.URL, &f.Title, &f.SiteURL, &f.ETag, &f.LastModified,
-		&fetched, &f.LastError, &f.ErrorCount, &next, &f.FullText)
+		&fetched, &f.LastError, &f.ErrorCount, &next, &f.FullText, &f.Category)
 	if err != nil {
 		return Feed{}, err
 	}
@@ -177,7 +179,12 @@ func (s *Store) CreateFeed(ctx context.Context, userID int64, url string) (int64
 // CreateFeedWithTitle is CreateFeed with a title to show until the feed is first
 // fetched, for example from an OPML file.
 func (s *Store) CreateFeedWithTitle(ctx context.Context, userID int64, url, title string) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `INSERT INTO feeds (user_id, url, title) VALUES (?, ?, ?)`, userID, url, title)
+	return s.CreateFeedInCategory(ctx, userID, url, title, "")
+}
+
+// CreateFeedInCategory is CreateFeedWithTitle with the topic to file the feed under.
+func (s *Store) CreateFeedInCategory(ctx context.Context, userID int64, url, title, category string) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `INSERT INTO feeds (user_id, url, title, category) VALUES (?, ?, ?, ?)`, userID, url, title, category)
 	if err != nil {
 		if isUnique(err) {
 			return 0, ErrExists
@@ -196,7 +203,7 @@ type FeedSummary struct {
 // ListFeeds returns one user's feeds, sorted by title, with unread counts.
 func (s *Store) ListFeeds(ctx context.Context, userID int64) ([]FeedSummary, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT f.id, f.user_id, f.url, f.title, f.site_url, f.etag,
-			f.last_modified, f.last_fetched_at, f.last_error, f.error_count, f.next_fetch_at, f.full_text,
+			f.last_modified, f.last_fetched_at, f.last_error, f.error_count, f.next_fetch_at, f.full_text, f.category,
 			(SELECT count(*) FROM items i WHERE i.feed_id = f.id AND i.is_read = 0)
 		FROM feeds f
 		WHERE f.user_id = ?
@@ -211,7 +218,7 @@ func (s *Store) ListFeeds(ctx context.Context, userID int64) ([]FeedSummary, err
 		var fs FeedSummary
 		var fetched, next sql.NullString
 		if err := rows.Scan(&fs.ID, &fs.UserID, &fs.URL, &fs.Title, &fs.SiteURL, &fs.ETag,
-			&fs.LastModified, &fetched, &fs.LastError, &fs.ErrorCount, &next, &fs.FullText, &fs.Unread); err != nil {
+			&fs.LastModified, &fetched, &fs.LastError, &fs.ErrorCount, &next, &fs.FullText, &fs.Category, &fs.Unread); err != nil {
 			return nil, err
 		}
 		fs.LastFetchedAt, fs.NextFetchAt = parseTime(fetched), parseTime(next)

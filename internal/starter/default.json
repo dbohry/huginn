@@ -1,0 +1,172 @@
+[
+  {
+    "category": "Technology",
+    "title": "The Verge",
+    "url": "https://www.theverge.com/rss/index.xml"
+  },
+  {
+    "category": "Technology",
+    "title": "Ars Technica",
+    "url": "https://feeds.arstechnica.com/arstechnica/index"
+  },
+  {
+    "category": "Technology",
+    "title": "TechCrunch",
+    "url": "https://techcrunch.com/feed/"
+  },
+  {
+    "category": "Technology",
+    "title": "Wired",
+    "url": "https://www.wired.com/feed/rss"
+  },
+  {
+    "category": "Technology",
+    "title": "Hacker News",
+    "url": "https://hnrss.org/frontpage"
+  },
+  {
+    "category": "Technology",
+    "title": "Engadget",
+    "url": "https://www.engadget.com/rss.xml"
+  },
+  {
+    "category": "Science",
+    "title": "NASA Breaking News",
+    "url": "https://www.nasa.gov/rss/dyn/breaking_news.rss"
+  },
+  {
+    "category": "Science",
+    "title": "ScienceDaily",
+    "url": "https://www.sciencedaily.com/rss/all.xml"
+  },
+  {
+    "category": "Science",
+    "title": "Nature",
+    "url": "https://www.nature.com/nature.rss"
+  },
+  {
+    "category": "Science",
+    "title": "Quanta Magazine",
+    "url": "https://api.quantamagazine.org/feed/"
+  },
+  {
+    "category": "World news",
+    "title": "BBC News",
+    "url": "http://feeds.bbci.co.uk/news/world/rss.xml"
+  },
+  {
+    "category": "World news",
+    "title": "NPR News",
+    "url": "https://feeds.npr.org/1001/rss.xml"
+  },
+  {
+    "category": "World news",
+    "title": "The Guardian",
+    "url": "https://www.theguardian.com/world/rss"
+  },
+  {
+    "category": "World news",
+    "title": "Al Jazeera",
+    "url": "https://www.aljazeera.com/xml/rss/all.xml"
+  },
+  {
+    "category": "Business",
+    "title": "CNBC",
+    "url": "https://www.cnbc.com/id/100003114/device/rss/rss.html"
+  },
+  {
+    "category": "Business",
+    "title": "Bloomberg Markets",
+    "url": "https://feeds.bloomberg.com/markets/news.rss"
+  },
+  {
+    "category": "Business",
+    "title": "Harvard Business Review",
+    "url": "https://hbr.org/feed"
+  },
+  {
+    "category": "Fashion",
+    "title": "Vogue",
+    "url": "https://www.vogue.com/feed/rss"
+  },
+  {
+    "category": "Fashion",
+    "title": "Business of Fashion",
+    "url": "https://www.businessoffashion.com/arc/outboundfeeds/rss/"
+  },
+  {
+    "category": "Fashion",
+    "title": "Fashionista",
+    "url": "https://fashionista.com/.rss/full/"
+  },
+  {
+    "category": "Fashion",
+    "title": "GQ",
+    "url": "https://www.gq.com/feed/rss"
+  },
+  {
+    "category": "Sports",
+    "title": "ESPN",
+    "url": "https://www.espn.com/espn/rss/news"
+  },
+  {
+    "category": "Sports",
+    "title": "BBC Sport",
+    "url": "https://feeds.bbci.co.uk/sport/rss.xml"
+  },
+  {
+    "category": "Sports",
+    "title": "The Guardian Sport",
+    "url": "https://www.theguardian.com/sport/rss"
+  },
+  {
+    "category": "Entertainment",
+    "title": "Variety",
+    "url": "https://variety.com/feed/"
+  },
+  {
+    "category": "Entertainment",
+    "title": "The Hollywood Reporter",
+    "url": "https://www.hollywoodreporter.com/feed/"
+  },
+  {
+    "category": "Entertainment",
+    "title": "Pitchfork",
+    "url": "https://pitchfork.com/feed/feed-news/rss"
+  },
+  {
+    "category": "Gaming",
+    "title": "Polygon",
+    "url": "https://www.polygon.com/rss/index.xml"
+  },
+  {
+    "category": "Gaming",
+    "title": "Kotaku",
+    "url": "https://kotaku.com/rss"
+  },
+  {
+    "category": "Gaming",
+    "title": "PC Gamer",
+    "url": "https://www.pcgamer.com/rss/"
+  },
+  {
+    "category": "Food",
+    "title": "Serious Eats",
+    "url": "https://www.seriouseats.com/feed"
+  },
+  {
+    "category": "Food",
+    "title": "Bon Appétit",
+    "url": "https://www.bonappetit.com/feed/rss"
+  },
+  {
+    "category": "Design",
+    "title": "Dezeen",
+    "url": "https://www.dezeen.com/feed/"
+  },
+  {
+    "category": "Design",
+    "title": "Smashing Magazine",
+    "url": "https://www.smashingmagazine.com/feed/"
+  }
+]

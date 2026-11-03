@@ -6,10 +6,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/dbohry/huginn/internal/starter"
 )
 
 // New returns the HTTP handler for the whole application. assets holds the
@@ -30,6 +33,9 @@ func Start(ctx context.Context, conn *sql.DB, assets fs.FS, version string, opts
 	s := newServer(conn, version)
 	if opts.BlockPrivate {
 		s.refresh.Fetcher.BlockPrivateNetworks()
+	}
+	if err := s.store.SeedStarterFeeds(ctx, starterRows(starter.Defaults())); err != nil {
+		slog.Error("could not fill the starter feeds", "error", err)
 	}
 	go s.refresh.Run(ctx)
 	return s.routes(assets)
@@ -63,6 +69,15 @@ func (s *server) routes(assets fs.FS) http.Handler {
 	mux.Handle("POST /api/items/{id}/full", s.authed(false, s.loadFullText))
 	mux.Handle("PUT /api/items/{id}/read", s.authed(false, s.setRead))
 	mux.Handle("POST /api/read-all", s.authed(false, s.markAllRead))
+
+	mux.Handle("GET /api/starter", s.authed(false, s.listStarter))
+	mux.Handle("POST /api/starter/subscribe", s.authed(false, s.subscribeStarter))
+	mux.Handle("POST /api/starter/dismiss", s.authed(false, s.dismissStarter))
+	mux.Handle("POST /api/starter/feeds", s.admin(s.addStarterFeed))
+	mux.Handle("DELETE /api/starter/feeds/{id}", s.admin(s.deleteStarterFeed))
+	mux.Handle("POST /api/starter/reset", s.admin(s.resetStarter))
+	mux.Handle("GET /api/starter/opml", s.admin(s.exportStarterOPML))
+	mux.Handle("POST /api/starter/opml", s.admin(s.importStarterOPML))
 
 	mux.Handle("GET /api/opml", s.authed(false, s.exportOPML))
 	mux.Handle("POST /api/opml", s.authed(false, s.importOPML))

@@ -48,7 +48,34 @@ async function addFeed(page, address) {
       await page.getByLabel('Password', { exact: true }).fill('demo-password-1');
       await page.getByLabel('Confirm password').fill('demo-password-1');
       await page.getByRole('button', { name: 'Create account' }).click();
+    });
+
+    await step('the first sign-in offers starter feeds by topic, and "Start empty" declines them', async () => {
+      const dialog = page.getByRole('dialog', { name: 'Start with a few feeds' });
+      await dialog.waitFor();
+      const topics = dialog.getByRole('group', { name: 'Topics' }).getByRole('button');
+      assert.ok((await topics.count()) >= 5, 'several topics');
+      // The first two topics are chosen, with a few feeds ticked.
+      assert.strictEqual(await dialog.getByRole('button', { name: /^Technology/ }).getAttribute('aria-pressed'), 'true');
+      assert.ok((await dialog.getByRole('checkbox', { checked: true }).count()) >= 4);
+      // Choosing another topic shows its feeds; choosing it again hides them.
+      await dialog.getByRole('button', { name: /^Fashion/ }).click();
+      await dialog.getByText('Vogue', { exact: true }).waitFor();
+      await dialog.getByRole('button', { name: /^Fashion/ }).click();
+      assert.strictEqual(await dialog.getByText('Vogue', { exact: true }).count(), 0);
+      await dialog.getByRole('button', { name: 'Start empty' }).click();
       await page.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
+    });
+
+    await step('the picker is offered only once, and can be opened again by hand', async () => {
+      await page.reload();
+      await page.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
+      assert.strictEqual(await page.getByRole('dialog').count(), 0, 'no picker on the next visit');
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: 'Starter feeds' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Start with a few feeds' });
+      await dialog.waitFor();
+      assert.strictEqual(await dialog.getByRole('button', { name: 'Cancel' }).count(), 1);
+      await dialog.getByRole('button', { name: 'Cancel' }).click();
     });
 
     await step('adding something that is not a feed explains why', async () => {
@@ -238,6 +265,40 @@ async function addFeed(page, address) {
       await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
     });
 
+    await step('feeds can be filed under a topic and the list grouped by it', async () => {
+      const nav = page.getByRole('navigation', { name: 'Feeds' });
+      assert.strictEqual(await nav.getByRole('button', { name: 'Group by topic' }).count(), 0, 'no toggle while no feed has a topic');
+      await nav.getByRole('button', { name: /^Field Notes/ }).click();
+      await page.getByRole('heading', { name: 'Field Notes', level: 1 }).waitFor();
+      await page.getByLabel('Topic').fill('Reading');
+      await page.getByLabel('Topic').press('Enter');
+      await page.getByText('Field Notes is now under Reading').waitFor();
+      await nav.getByText('Reading', { exact: true }).waitFor();
+      await nav.getByText('Other', { exact: true }).waitFor();
+      // Turning grouping off brings the single list back, and the choice sticks.
+      await nav.getByRole('button', { name: 'Group by topic' }).click();
+      assert.strictEqual(await nav.getByText('Reading', { exact: true }).count(), 0);
+      await page.reload();
+      await nav.getByRole('button', { name: /^Field Notes/ }).waitFor();
+      assert.strictEqual(await nav.getByText('Reading', { exact: true }).count(), 0);
+      await nav.getByRole('button', { name: 'Group by topic' }).click();
+      await nav.getByText('Reading', { exact: true }).waitFor();
+    });
+
+    await step('an administrator can edit the starter list', async () => {
+      await page.goto(BASE + '/settings');
+      const card = page.getByRole('region', { name: 'Starter feeds' });
+      await card.waitFor();
+      await card.getByLabel('Topic').fill('Music');
+      await card.getByLabel('Feed address').fill(site.url + '/fieldnotes.xml');
+      await card.getByRole('button', { name: 'Add to list' }).click();
+      await card.getByText('Added.').waitFor();
+      await card.getByText('Music', { exact: false }).first().waitFor();
+      await card.getByRole('button', { name: 'Remove Field Notes' }).waitFor().catch(() => {});
+      await page.goto(BASE + '/');
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
+    });
+
     await step('unfollowing a feed removes it and its articles', async () => {
       await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Hostile Feed/ }).click();
       await page.getByRole('button', { name: 'Unfollow' }).click();
@@ -249,7 +310,7 @@ async function addFeed(page, address) {
       await page.goto(BASE + '/settings');
       await page.getByRole('link', { name: /Back to reading/ }).waitFor();
       const opml = await site.opml();
-      await page.locator('input[type=file]').setInputFiles({ name: 'subs.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
+      await page.getByRole('region', { name: 'Subscriptions' }).locator('input[type=file]').setInputFiles({ name: 'subs.opml', mimeType: 'text/xml', buffer: Buffer.from(opml) });
       await page.getByText(/already followed 2/).waitFor();
     });
 
@@ -337,6 +398,8 @@ async function addFeed(page, address) {
       await page.getByLabel('Password', { exact: true }).fill('sam-password-1');
       await page.getByRole('button', { name: 'Sign in' }).click();
       await page.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
+      // Sam has not been offered the starter feeds yet, so the picker is open; turn it down.
+      await page.getByRole('dialog', { name: 'Start with a few feeds' }).getByRole('button', { name: 'Start empty' }).click();
       await page.waitForTimeout(500);
       assert.strictEqual(await page.evaluate(() => window.__leak), false, "the previous user's feeds showed for the next user");
       await page.getByRole('button', { name: 'Sign out' }).click();

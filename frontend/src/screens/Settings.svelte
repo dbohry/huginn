@@ -1,6 +1,7 @@
 <script lang="ts">
   import Field from '../components/Field.svelte';
   import Logo from '../components/Logo.svelte';
+  import StarterAdmin from '../components/StarterAdmin.svelte';
   import TempPasswordDialog from '../components/TempPasswordDialog.svelte';
   import { api, ApiError, type UserSummary } from '../lib/api';
   import { appearance, type Mode } from '../lib/appearance.svelte';
@@ -259,6 +260,8 @@
       </form>
     </section>
   {/if}
+
+  {#if session.user?.isAdmin}<StarterAdmin />{/if}
 
   <section class="card" aria-labelledby="about">
     <div class="head">

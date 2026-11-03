@@ -54,6 +54,13 @@ A feed that shares only a summary, as many news sites do, would leave you with a
 
 Like Bifrost: the first account is the administrator and chooses their password; the administrator adds others with a temporary password that must be changed at first sign-in. Feeds belong to one user. If two users follow the same feed it is fetched twice, which keeps read state trivial and is cheap at this size.
 
+### Starter feeds and topics
+
+- **The list.** `starter_feeds` holds the suggestions (topic, title, address). The first time the server starts on a database it is filled from `internal/starter/default.json`; after that the database is the source, so an administrator who empties it does not get the built-in list back. Settings can add or remove a feed, replace the list from an OPML file (folders become topics), export it, or restore the built-in list.
+- **The offer.** Each account has a `starter_done` flag. It is false for new accounts and true for those that existed before the feature, so only new people see the picker at sign-in. Taking feeds, or closing the picker, sets it. The picker can always be opened from the sidebar or the empty-reader screen.
+- **Following.** Chosen feeds are added the way an OPML import adds them: at once, without waiting for each site, and fetched in the background. A feed that has since been removed from the list is skipped. Addresses are not checked when an administrator adds them; a broken one shows its error on the user's feed like any other.
+- **Topics.** `feeds.category` is a plain string, at most 40 characters, "" for none. A feed gets its topic from the starter list or from an OPML folder, and the user can change it from the feed's toolbar. Grouping the sidebar by topic is a per-browser choice. OPML export writes topics back as folders.
+
 ### Interface
 
 Three panes on a wide screen (feeds, articles, the reader). Below 900 px only one pane shows at a time, and the page keeps one `main` landmark and a level-one heading in every state. The bundle has a 100 KB gzipped budget, checked in CI.
@@ -67,4 +74,4 @@ Three panes on a wide screen (feeds, articles, the reader). Below 900 px only on
 
 ## Not in the first version
 
-Search, folders and tags, starring, keyboard shortcuts, full-text extraction for feeds that only publish a summary, a sync API for mobile apps, and image proxying (which would stop sites seeing who reads their pictures).
+Search, nested folders and tags, starring, keyboard shortcuts, full-text extraction for feeds that only publish a summary, a sync API for mobile apps, and image proxying (which would stop sites seeing who reads their pictures).

@@ -224,3 +224,15 @@ func (s *Store) SetFeedFullText(ctx context.Context, userID, feedID int64, on bo
 	}
 	return nil
 }
+
+// SetFeedCategory files one of the user's feeds under a topic ("" for none).
+func (s *Store) SetFeedCategory(ctx context.Context, userID, feedID int64, category string) error {
+	res, err := s.db.ExecContext(ctx, `UPDATE feeds SET category = ? WHERE id = ? AND user_id = ?`, category, feedID, userID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

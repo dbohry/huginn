@@ -4,8 +4,9 @@
   let {
     title,
     onclose,
+    wide = false,
     children,
-  }: { title: string; onclose: () => void; children: Snippet } = $props();
+  }: { title: string; onclose: () => void; wide?: boolean; children: Snippet } = $props();
 
   let dialog = $state<HTMLDialogElement>();
   const titleId = $props.id();
@@ -17,7 +18,7 @@
   });
 </script>
 
-<dialog bind:this={dialog} aria-labelledby={titleId} {onclose} oncancel={onclose}>
+<dialog bind:this={dialog} class:wide aria-labelledby={titleId} {onclose} oncancel={onclose}>
   <h2 id={titleId}>{title}</h2>
   {@render children()}
 </dialog>
@@ -30,6 +31,9 @@
     border-radius: 14px;
     background: var(--bg);
     color: var(--text);
+  }
+  dialog.wide {
+    width: min(640px, calc(100vw - 32px));
   }
   dialog::backdrop {
     background: rgb(0 0 0 / 0.5);

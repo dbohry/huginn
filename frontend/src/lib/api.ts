@@ -3,6 +3,8 @@ export type User = {
   username: string;
   isAdmin: boolean;
   mustChangePassword: boolean;
+  /** False until the user has been offered the starter feeds. */
+  starterDone: boolean;
 };
 
 /** A subscribed feed. `title` falls back to the site's host. */
@@ -18,7 +20,13 @@ export type Feed = {
   error: string;
   /** Load the full article automatically when one of this feed's articles is opened. */
   fullText: boolean;
+  /** The topic the feed is filed under, or "" for none. */
+  category: string;
 };
+
+/** A feed suggested to new users. */
+export type StarterFeed = { id: number; title: string; url: string; followed: boolean };
+export type StarterTopic = { name: string; feeds: StarterFeed[] };
 
 /** An article in a list. */
 export type Item = {
@@ -133,6 +141,7 @@ export const api = {
   addFeed: (url: string) => request<{ feed: Feed }>('POST', '/api/feeds', json({ url })),
   deleteFeed: (id: number) => request<void>('DELETE', `/api/feeds/${id}`),
   setFeedFullText: (id: number, on: boolean) => request<{ feed: Feed }>('PATCH', `/api/feeds/${id}`, json({ fullText: on })),
+  setFeedCategory: (id: number, category: string) => request<{ feed: Feed }>('PATCH', `/api/feeds/${id}`, json({ category })),
   refreshFeed: (id: number) => request<void>('POST', `/api/feeds/${id}/refresh`),
   /** Starts fetching every feed in the background. */
   refreshAll: () => request<{ feeds: number }>('POST', '/api/refresh'),
@@ -154,4 +163,14 @@ export const api = {
     request<{ marked: number }>('POST', '/api/read-all', json(feedId ? { feedId } : {})),
 
   importOpml: (xml: string) => request<ImportResult>('POST', '/api/opml', { xml }),
+
+  starter: () => request<{ topics: StarterTopic[] }>('GET', '/api/starter'),
+  subscribeStarter: (ids: number[]) => request<{ added: number; existing: number }>('POST', '/api/starter/subscribe', json({ ids })),
+  dismissStarter: () => request<void>('POST', '/api/starter/dismiss'),
+  // Administrators edit the list.
+  addStarterFeed: (category: string, title: string, url: string) =>
+    request<{ feed: StarterFeed }>('POST', '/api/starter/feeds', json({ category, title, url })),
+  deleteStarterFeed: (id: number) => request<void>('DELETE', `/api/starter/feeds/${id}`),
+  resetStarter: () => request<void>('POST', '/api/starter/reset'),
+  importStarterOpml: (xml: string) => request<{ feeds: number; skipped: number }>('POST', '/api/starter/opml', { xml }),
 };
