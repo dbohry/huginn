@@ -49,6 +49,11 @@ class Session {
     if (this.user) this.user = { ...this.user, mustChangePassword: false };
   }
 
+  /** The first-login offer of starter feeds has been taken or declined. */
+  starterDone() {
+    if (this.user) this.user = { ...this.user, starterDone: true };
+  }
+
   private signedIn(user: User) {
     this.user = user;
     this.phase = 'authed';

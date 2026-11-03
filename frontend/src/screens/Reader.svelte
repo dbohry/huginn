@@ -4,13 +4,20 @@
   import ArticleList from '../components/ArticleList.svelte';
   import ArticlePane from '../components/ArticlePane.svelte';
   import Sidebar from '../components/Sidebar.svelte';
+  import StarterDialog from '../components/StarterDialog.svelte';
   import Toast from '../components/Toast.svelte';
   import { appearance } from '../lib/appearance.svelte';
   import { reader } from '../lib/reader.svelte';
+  import { session } from '../lib/session.svelte';
   import { ui } from '../lib/ui.svelte';
 
   $effect(() => {
     reader.init();
+  });
+
+  // A new account is offered the starter feeds once, at its first sign-in.
+  $effect(() => {
+    if (session.user && !session.user.starterDone) reader.starterOpen = true;
   });
 
   // Single-key shortcuts, only when nothing is being typed and no dialog is open.
@@ -83,6 +90,7 @@
 </main>
 
 {#if reader.addOpen}<AddFeedDialog onclose={() => (reader.addOpen = false)} />{/if}
+{#if reader.starterOpen}<StarterDialog onclose={() => (reader.starterOpen = false)} />{/if}
 <Toast />
 
 <style>

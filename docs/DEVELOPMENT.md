@@ -24,7 +24,8 @@ Browser checks live in `e2e/` and need Chromium: run `npm install` in that direc
 - `internal/article`: finds the readable article in a web page, for **Load full article**. `feed.Fetcher.FetchPage` downloads the page (size limit, character set, private-network setting) and `article.Extract` reads it
 - `internal/refresh`: the background refresher: due feeds once a minute, four at a time, one at a time per host, exponential backoff after failures
 - `internal/sanitize`: the allow-list that cleans article HTML, and the plain-text snippets. A test feeds it hostile input
-- `internal/opml`: OPML import and export
+- `internal/opml`: OPML import and export, with folders read as topics
+- `internal/starter`: the built-in list of starter feeds (`default.json`)
 - `internal/webui`: embeds the built frontend
 - `frontend`: the Svelte app. `npm run build` writes into `internal/webui/dist`
 - Database migrations are numbered SQL files in `internal/db/migrations`, applied in order at start-up

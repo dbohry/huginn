@@ -2,6 +2,7 @@ export type Mode = 'system' | 'light' | 'dark';
 
 const MODE_KEY = 'huginn.mode';
 const SHORTCUTS_KEY = 'huginn.shortcuts';
+const GROUP_KEY = 'huginn.group';
 
 // The browser's address bar and status bar take this colour on a phone.
 const barColour = { light: '#ffffff', dark: '#141414' };
@@ -45,6 +46,14 @@ class Appearance {
   mode = $state<Mode>(storedMode());
   /** Single-key shortcuts such as j and k. Off for people who would trigger them by accident. */
   shortcuts = $state(read(SHORTCUTS_KEY) !== 'off');
+
+  /** Show the feed list in sections by topic, when feeds have topics. */
+  groupByTopic = $state(read(GROUP_KEY) !== 'off');
+
+  setGroupByTopic(on: boolean) {
+    this.groupByTopic = on;
+    write(GROUP_KEY, on ? null : 'off');
+  }
 
   set(mode: Mode) {
     this.mode = mode;

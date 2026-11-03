@@ -97,10 +97,12 @@ type userJSON struct {
 	Username           string `json:"username"`
 	IsAdmin            bool   `json:"isAdmin"`
 	MustChangePassword bool   `json:"mustChangePassword"`
+	// StarterDone is false until the user has been offered the starter feeds.
+	StarterDone bool `json:"starterDone"`
 }
 
 func toJSON(u store.User) userJSON {
-	return userJSON{ID: u.ID, Username: u.Username, IsAdmin: u.IsAdmin, MustChangePassword: u.MustChangePassword}
+	return userJSON{ID: u.ID, Username: u.Username, IsAdmin: u.IsAdmin, MustChangePassword: u.MustChangePassword, StarterDone: u.StarterDone}
 }
 
 // --- setup (first run) ---------------------------------------------------

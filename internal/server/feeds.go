@@ -31,10 +31,12 @@ type feedJSON struct {
 	Error string `json:"error"`
 	// FullText is true when full articles are loaded automatically as they are opened.
 	FullText bool `json:"fullText"`
+	// Category is the topic the feed is filed under, or empty for none.
+	Category string `json:"category"`
 }
 
 func toFeedJSON(f store.FeedSummary) feedJSON {
-	out := feedJSON{ID: f.ID, URL: f.URL, Title: feedName(f.Title, f.URL), SiteURL: f.SiteURL, Unread: f.Unread, Error: f.LastError, FullText: f.FullText}
+	out := feedJSON{ID: f.ID, URL: f.URL, Title: feedName(f.Title, f.URL), SiteURL: f.SiteURL, Unread: f.Unread, Error: f.LastError, FullText: f.FullText, Category: f.Category}
 	if f.LastFetchedAt != nil {
 		t := f.LastFetchedAt.Unix()
 		out.LastFetchedAt = &t
@@ -289,16 +291,29 @@ func (s *server) updateFeed(w http.ResponseWriter, r *http.Request, user store.U
 		return
 	}
 	var in struct {
-		FullText *bool `json:"fullText"`
+		FullText *bool   `json:"fullText"`
+		Category *string `json:"category"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
-	if in.FullText == nil {
+	if in.FullText == nil && in.Category == nil {
 		writeError(w, http.StatusBadRequest, "There is nothing to change.")
 		return
 	}
-	switch err := s.store.SetFeedFullText(r.Context(), user.ID, id, *in.FullText); {
+	var err error
+	if in.FullText != nil {
+		err = s.store.SetFeedFullText(r.Context(), user.ID, id, *in.FullText)
+	}
+	if err == nil && in.Category != nil {
+		category, msg := cleanCategory(*in.Category)
+		if msg != "" {
+			writeError(w, http.StatusBadRequest, msg)
+			return
+		}
+		err = s.store.SetFeedCategory(r.Context(), user.ID, id, category)
+	}
+	switch {
 	case errors.Is(err, store.ErrNotFound):
 		writeError(w, http.StatusNotFound, "Feed not found.")
 		return

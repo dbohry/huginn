@@ -24,6 +24,8 @@ class Reader {
   pane = $state<Pane>('list');
   /** The "Add a feed" dialog. It lives here so the first-run screen can open it too. */
   addOpen = $state(false);
+  /** The starter feeds picker. It opens by itself at a new user's first sign-in, and from the sidebar. */
+  starterOpen = $state(false);
 
   loadingList = $state(false);
   loadingMore = $state(false);
@@ -87,6 +89,7 @@ class Reader {
     this.selected = null;
     this.pane = 'list';
     this.addOpen = false;
+    this.starterOpen = false;
     this.loadingList = this.loadingMore = this.loadingItem = this.loadingFull = this.refreshing = false;
     this.refreshingFeedId = null;
     this.listError = '';
@@ -362,6 +365,22 @@ class Reader {
       this.notify(message(e), 'error');
     }
   }
+
+  /** Files a feed under a topic ("" for none). */
+  async setFeedCategory(id: number, category: string) {
+    const feed = this.feeds.find((f) => f.id === id);
+    if (!feed || feed.category === category.trim()) return;
+    try {
+      const { feed: updated } = await api.setFeedCategory(id, category);
+      feed.category = updated.category;
+      this.notify(updated.category ? `${feed.title} is now under ${updated.category}` : `${feed.title} has no topic now`);
+    } catch (e) {
+      this.notify(message(e), 'error');
+    }
+  }
+
+  /** The topics in use, for suggesting when filing a feed. */
+  topics = $derived([...new Set(this.feeds.map((f) => f.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)));
 
   /** Called after an OPML import: new feeds appear as they are fetched. */
   async reloadSoon() {

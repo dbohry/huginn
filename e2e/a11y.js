@@ -43,6 +43,9 @@ const post = (page, path, body) =>
   await p0.getByLabel('Password', { exact: true }).fill('demo-password-1');
   await p0.getByLabel('Confirm password').fill('demo-password-1');
   await p0.getByRole('button', { name: 'Create account' }).click();
+  await p0.getByRole('dialog', { name: 'Start with a few feeds' }).waitFor();
+  await audit(p0, 'first sign-in: starter feeds');
+  await p0.getByRole('button', { name: 'Start empty' }).click();
   await p0.getByRole('heading', { name: 'Follow your first feed' }).waitFor();
   await audit(p0, 'empty reader');
   await post(p0, '/api/feeds', { url: site.url + '/fieldnotes.xml' });
