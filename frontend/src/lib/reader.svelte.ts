@@ -262,6 +262,11 @@ class Reader {
     else this.pushPane('feeds');
   }
 
+  /** Shows the open article's pane (on a phone it replaces the list). */
+  showArticle() {
+    if (this.selectedId !== null && this.pane !== 'article') this.pushPane('article');
+  }
+
   async chooseFeed(id: number | null) {
     this.feedId = id;
     this.goList();

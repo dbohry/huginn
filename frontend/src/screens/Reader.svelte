@@ -7,6 +7,7 @@
   import StarterDialog from '../components/StarterDialog.svelte';
   import Toast from '../components/Toast.svelte';
   import { appearance } from '../lib/appearance.svelte';
+  import { arrowNav } from '../lib/keynav';
   import { reader } from '../lib/reader.svelte';
   import { session } from '../lib/session.svelte';
   import { ui } from '../lib/ui.svelte';
@@ -31,22 +32,10 @@
     return el.tagName === 'INPUT' && !notText.has((el as HTMLInputElement).type);
   }
 
-  // Arrow keys scroll the article when nothing has focus. The pane scrolls by itself, but the
-  // browser only scrolls what has focus (or was clicked), and after j/k focus is on the page.
-  function scrollArticle(e: KeyboardEvent) {
-    if (e.shiftKey || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return false;
-    const t = e.target as HTMLElement | null;
-    if (t && t !== document.body && t !== document.documentElement) return false;
-    const pane = document.querySelector<HTMLElement>('section.pane[aria-label="Article"]');
-    if (!pane || pane.scrollHeight <= pane.clientHeight) return false;
-    pane.scrollBy({ top: (e.key === 'ArrowDown' ? 1 : -1) * 60 });
-    return true;
-  }
-
   function onkeydown(e: KeyboardEvent) {
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
-    if (!typing(e.target) && !document.querySelector('dialog[open]') && scrollArticle(e)) {
-      e.preventDefault();
+    if (e.key.startsWith('Arrow') && !e.shiftKey && !typing(e.target) && !document.querySelector('dialog[open]')) {
+      if (arrowNav(e)) e.preventDefault();
       return;
     }
     if (!appearance.shortcuts || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;

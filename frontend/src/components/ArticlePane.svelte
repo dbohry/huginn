@@ -39,7 +39,7 @@
   });
 </script>
 
-<section class="pane" aria-label="Article">
+<section class="pane" aria-label="Article" tabindex="-1">
   <header>
     <button class="icon mobile-only" aria-label="Back to articles" onclick={() => reader.goList()}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
@@ -98,7 +98,7 @@
       <span class="mark"><Logo size={44} /></span>
       <p>Select an article to read it.</p>
       {#if appearance.shortcuts && !ui.narrow}
-        <p class="hint"><kbd>j</kbd> and <kbd>k</kbd> move between articles, <kbd>m</kbd> marks read or unread.</p>
+        <p class="hint"><kbd>↑</kbd> <kbd>↓</kbd> (or <kbd>j</kbd> <kbd>k</kbd>) move between articles, <kbd>←</kbd> <kbd>→</kbd> between panes, <kbd>m</kbd> marks read or unread.</p>
       {/if}
     </div>
   {/if}
@@ -112,6 +112,9 @@
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
+  }
+  .pane:focus {
+    outline: none;
   }
   header {
     display: flex;

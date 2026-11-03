@@ -66,7 +66,7 @@ Like Bifrost: the first account is the administrator and chooses their password;
 Three panes on a wide screen (feeds, articles, the reader). Below 900 px only one pane shows at a time, and the page keeps one `main` landmark and a level-one heading in every state. The bundle has a 100 KB gzipped budget, checked in CI.
 
 - **Phones.** The browser's Back button, or a swipe back, steps from the article to the list and from the feed list to the list, because each step is a history entry. Focus moves into the pane that appears, instead of staying on a button that has just left the screen.
-- **Keyboard.** `j`, `k`, `m`, `o` and `r` work while reading. They are single-key shortcuts, so Settings can turn them off, and they never fire while typing in a field or with a dialog open.
+- **Keyboard.** The arrow keys move around the whole reader: up and down within a pane (or scroll the open article), left and right between the feeds, the list and the article. They are not single-key shortcuts, so they stay on. `j`, `k`, `m`, `o` and `r` work while reading. They are single-key shortcuts, so Settings can turn them off, and they never fire while typing in a field or with a dialog open.
 - **Feedback.** Actions that finish quietly (marking everything read, refreshing, following or unfollowing a feed) show a short message. Failures to load the list stay on screen with a Try again button, and a feed's last fetch error stays on the feed.
 - **Long lists.** Articles load 50 at a time and the next page loads as the end comes into view.
 - **Signing out** clears everything the reader holds in memory, so the next person who signs in on the same tab never sees the last one's feeds or articles.
