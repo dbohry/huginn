@@ -151,9 +151,8 @@
 <style>
   .card {
     padding: 20px;
-    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 12px;
     display: flex;
     flex-direction: column;
     gap: 16px;
