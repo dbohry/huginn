@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -71,6 +72,11 @@ func (s *Store) ListItems(ctx context.Context, f ItemFilter) ([]Item, *Cursor, e
 	}
 	query := `SELECT i.id, i.feed_id, f.title, f.url, i.title, i.url, i.author,
 			i.published_at, substr(i.summary, 1, ?), i.is_read ` + itemFrom + ` WHERE f.user_id = ?`
+	if f.FeedID == 0 && !f.UnreadOnly {
+		// Walk articles newest first (items_published) and look up each feed's owner,
+		// so a page costs a page of rows however many articles there are.
+		query = strings.Replace(query, " JOIN feeds f ON", " CROSS JOIN feeds f ON", 1)
+	}
 	args := []any{summaryListLimit, f.UserID}
 	if f.FeedID != 0 {
 		query += ` AND i.feed_id = ?`

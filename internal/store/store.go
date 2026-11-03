@@ -204,10 +204,9 @@ type FeedSummary struct {
 func (s *Store) ListFeeds(ctx context.Context, userID int64) ([]FeedSummary, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT f.id, f.user_id, f.url, f.title, f.site_url, f.etag,
 			f.last_modified, f.last_fetched_at, f.last_error, f.error_count, f.next_fetch_at, f.full_text, f.category,
-			COALESCE(SUM(CASE WHEN i.is_read = 0 THEN 1 ELSE 0 END), 0)
-		FROM feeds f LEFT JOIN items i ON i.feed_id = f.id
+			(SELECT count(*) FROM items i WHERE i.feed_id = f.id AND i.is_read = 0)
+		FROM feeds f
 		WHERE f.user_id = ?
-		GROUP BY f.id
 		ORDER BY lower(CASE WHEN f.title != '' THEN f.title ELSE f.url END), f.id`, userID)
 	if err != nil {
 		return nil, err
