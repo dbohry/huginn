@@ -73,14 +73,14 @@ class Reader {
       if (!pane) {
         history.replaceState({ pane: 'feeds' }, '', location.pathname);
         history.pushState({ pane: 'list' }, '', location.pathname);
-        this.pane = 'list';
-      } else if (pane === 'article' && !this.selected) {
-        // After a reload the article is gone; fall back to the list.
+      } else if (pane === 'feeds') {
+        // A load always starts on the list, as it does without a saved state.
+        history.pushState({ pane: 'list' }, '', location.pathname);
+      } else if (pane === 'article') {
+        // The article is gone after a load; fall back to the list.
         history.replaceState({ pane: 'list' }, '', location.pathname);
-        this.pane = 'list';
-      } else {
-        this.pane = pane;
       }
+      this.pane = 'list';
     }
     await Promise.all([this.loadFeeds(), this.loadItems()]);
   }
