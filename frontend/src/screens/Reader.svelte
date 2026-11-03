@@ -61,6 +61,36 @@
     e.preventDefault();
   }
 
+  // Swipe right on the list to open the feeds menu; swipe left on the menu to close it.
+  // Only phones, only a mostly horizontal drag, and not from inside something that scrolls sideways.
+  const SWIPE_MIN = 60;
+  let swipe: { x: number; y: number } | null = null;
+
+  function scrollsSideways(target: EventTarget | null) {
+    for (let el = target as HTMLElement | null; el && el !== document.body; el = el.parentElement) {
+      if (el.scrollWidth > el.clientWidth && /(auto|scroll)/.test(getComputedStyle(el).overflowX)) return true;
+    }
+    return false;
+  }
+
+  function ontouchstart(e: TouchEvent) {
+    const t = e.touches[0];
+    const ok = e.touches.length === 1 && ui.narrow && !document.querySelector('dialog[open]');
+    swipe = ok && !scrollsSideways(e.target) ? { x: t.clientX, y: t.clientY } : null;
+  }
+
+  function ontouchend(e: TouchEvent) {
+    const start = swipe;
+    swipe = null;
+    if (!start || !ui.narrow) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 2) return;
+    if (dx > 0 && reader.pane === 'list') reader.showFeeds();
+    else if (dx < 0 && reader.pane === 'feeds') reader.goList();
+  }
+
   // On a phone only one pane is on screen, so when the pane changes move focus into the new one.
   // (The article pane moves its own focus once the article has loaded.)
   let lastPane = reader.pane;
@@ -82,7 +112,7 @@
 <svelte:window {onkeydown} />
 
 <!-- Three panes side by side on a wide screen; one at a time on a narrow one. -->
-<main class="app" data-pane={reader.pane}>
+<main class="app" data-pane={reader.pane} {ontouchstart} {ontouchend} ontouchcancel={() => (swipe = null)}>
   <Sidebar />
   <ArticleList />
   <ArticlePane />
