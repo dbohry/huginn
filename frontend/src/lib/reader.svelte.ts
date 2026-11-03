@@ -66,10 +66,21 @@ class Reader {
   }
 
   async init() {
-    // After a reload the browser may still hold a pane from an earlier visit.
-    if (!this.selected && (history.state as { pane?: Pane } | null)?.pane) {
-      history.replaceState(null, '', location.pathname);
-      this.pane = 'list';
+    // On a phone the feeds menu sits one history entry beneath the list, so the browser's own
+    // back swipe (from the screen edge) from the list opens the menu instead of leaving the app.
+    if (ui.narrow) {
+      const pane = (history.state as { pane?: Pane } | null)?.pane;
+      if (!pane) {
+        history.replaceState({ pane: 'feeds' }, '', location.pathname);
+        history.pushState({ pane: 'list' }, '', location.pathname);
+        this.pane = 'list';
+      } else if (pane === 'article' && !this.selected) {
+        // After a reload the article is gone; fall back to the list.
+        history.replaceState({ pane: 'list' }, '', location.pathname);
+        this.pane = 'list';
+      } else {
+        this.pane = pane;
+      }
     }
     await Promise.all([this.loadFeeds(), this.loadItems()]);
   }
@@ -167,12 +178,17 @@ class Reader {
 
   /** Shows the list. On a phone this goes back a step, so the Back button and this agree. */
   goList() {
-    if (ui.narrow && (history.state as { pane?: Pane } | null)?.pane) history.back();
+    const pane = (history.state as { pane?: Pane } | null)?.pane;
+    if (!ui.narrow) this.pane = 'list';
+    else if (pane === 'article') history.back();
+    else if (pane !== 'list') this.pushPane('list');
     else this.pane = 'list';
   }
 
+  /** Shows the feeds menu. On a phone it is the history entry below the list, so this goes back to it. */
   showFeeds() {
-    this.pushPane('feeds');
+    if (ui.narrow && (history.state as { pane?: Pane } | null)?.pane === 'list') history.back();
+    else this.pushPane('feeds');
   }
 
   async chooseFeed(id: number | null) {
