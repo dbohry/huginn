@@ -57,7 +57,9 @@ class Reader {
     // The phone's Back button, and a swipe back, move between the panes.
     if (typeof window !== 'undefined') {
       addEventListener('popstate', (e) => {
+        const was = this.pane;
         this.pane = (e.state as { pane?: Pane } | null)?.pane ?? 'list';
+        if (was === 'article' && this.pane !== 'article') this.dropReadSelection();
       });
     }
   }
@@ -172,6 +174,7 @@ class Reader {
 
   /** Shows the list. On a phone this goes back a step, so the Back button and this agree. */
   goList() {
+    this.dropReadSelection();
     const pane = (history.state as { pane?: Pane } | null)?.pane;
     if (!ui.narrow) this.pane = 'list';
     else if (pane === 'article') history.back();
@@ -197,7 +200,16 @@ class Reader {
     await this.loadItems();
   }
 
+  /** With "Unread only" on, an article that has been read leaves the list once it is no longer the selected one. */
+  private dropReadSelection(keepId: number | null = null) {
+    if (!this.unreadOnly || this.selectedId === null || this.selectedId === keepId) return;
+    const id = this.selectedId;
+    const item = this.items.find((i) => i.id === id);
+    if (item && !item.unread) this.items = this.items.filter((i) => i.id !== id);
+  }
+
   async open(item: Item) {
+    this.dropReadSelection(item.id);
     const token = ++this.itemToken;
     this.selectedId = item.id;
     if (this.pane !== 'article') this.pushPane('article');
