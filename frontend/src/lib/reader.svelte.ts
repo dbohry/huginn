@@ -126,7 +126,7 @@ class Reader {
       if (fresh === 0) return;
       if (!this.next || shown <= page.items.length) {
         // Only the first page is loaded (or everything fits in it): swap it in place.
-        this.items = keepOpened ? this.keepOpen(page.items) : page.items;
+        this.items = this.keepOpen(page.items);
         this.next = page.next;
         this.listError = '';
       } else {
