@@ -4,7 +4,7 @@
   import StarterAdmin from '../components/StarterAdmin.svelte';
   import StarterDialog from '../components/StarterDialog.svelte';
   import TempPasswordDialog from '../components/TempPasswordDialog.svelte';
-  import { api, ApiError, type UserSummary } from '../lib/api';
+  import { api, ApiError, type BlockedWord, type UserSummary } from '../lib/api';
   import { appearance, type Mode } from '../lib/appearance.svelte';
   import { reader } from '../lib/reader.svelte';
   import { link } from '../lib/router.svelte';
@@ -16,11 +16,12 @@
   let starterOpen = $state(false);
 
   // --- sections: only the selected one is shown ---
-  type Section = 'account' | 'appearance' | 'subscriptions' | 'users' | 'starter' | 'about';
+  type Section = 'account' | 'appearance' | 'filters' | 'subscriptions' | 'users' | 'starter' | 'about';
   let selected = $state<Section>('account');
   const general: { id: Section; label: string }[] = [
     { id: 'account', label: 'Account' },
     { id: 'appearance', label: 'Appearance' },
+    { id: 'filters', label: 'Filters' },
     { id: 'subscriptions', label: 'Subscriptions' },
   ];
   const admin: { id: Section; label: string }[] = [
@@ -101,6 +102,39 @@
       reader.reloadSoon();
     } catch (err) {
       importError = messageOf(err);
+    }
+  }
+
+  // --- filters ---
+  let blocked = $state<BlockedWord[]>([]);
+  let blockedNew = $state('');
+  let blockedError = $state('');
+
+  $effect(() => {
+    api.blockedWords().then((r) => (blocked = r.words), (err) => (blockedError = messageOf(err)));
+  });
+
+  async function addBlocked(e: SubmitEvent) {
+    e.preventDefault();
+    blockedError = '';
+    try {
+      const { word } = await api.addBlockedWord(blockedNew);
+      blocked = [...blocked, word].sort((a, b) => a.word.localeCompare(b.word));
+      blockedNew = '';
+      void reader.reloadNow();
+    } catch (err) {
+      blockedError = messageOf(err);
+    }
+  }
+
+  async function removeBlocked(b: BlockedWord) {
+    blockedError = '';
+    try {
+      await api.deleteBlockedWord(b.id);
+      blocked = blocked.filter((x) => x.id !== b.id);
+      void reader.reloadNow();
+    } catch (err) {
+      blockedError = messageOf(err);
     }
   }
 
@@ -271,6 +305,36 @@
                 </div>
               {/each}
             </dl>
+          </div>
+        </section>
+      {:else if selected === 'filters'}
+        <section aria-labelledby="filters">
+          <div class="head">
+            <h2 id="filters">Filters</h2>
+            <p class="sub">Hide articles whose headline contains a word you do not want to see.</p>
+          </div>
+          <div class="group">
+            <form class="row stack" onsubmit={addBlocked}>
+              <div class="text">
+                <label class="lbl" for="blocked-new">Blocked words</label>
+                <span class="desc">Whole words, in any capitalization. “bitcoin” hides “Bitcoin hits a new high” but not “Bitcoiner”. A short phrase works too. Hidden articles are not counted as unread.</span>
+              </div>
+              <div class="addword">
+                <input id="blocked-new" class="text-input" placeholder="Add a word or phrase" autocomplete="off" autocapitalize="off" spellcheck="false" bind:value={blockedNew} />
+                <button class="button" type="submit" disabled={blockedNew.trim() === ''}>Add</button>
+              </div>
+              {#if blockedError}<p class="error" role="alert">{blockedError}</p>{/if}
+              {#if blocked.length > 0}
+                <ul class="chips" aria-label="Blocked words">
+                  {#each blocked as b (b.id)}
+                    <li class="chip">
+                      <span>{b.word}</span>
+                      <button type="button" class="chipx" aria-label={`Unblock ${b.word}`} onclick={() => removeBlocked(b)}>✕</button>
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+            </form>
           </div>
         </section>
       {:else if selected === 'subscriptions'}
@@ -752,6 +816,41 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--bg);
+  }
+  .addword {
+    display: flex;
+    gap: 8px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 2px 2px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg);
+  }
+  .chipx {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+  }
+  .chipx:hover {
+    background: var(--selected);
+    color: var(--bad);
   }
   .adduser .button {
     margin-left: auto;

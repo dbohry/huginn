@@ -506,6 +506,11 @@ class Reader {
   /** The topics in use, for suggesting when filing a feed. */
   topics = $derived([...new Set(this.feeds.map((f) => f.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)));
 
+  /** Called after the blocked words change: reloads the feeds' counts and the list now. */
+  async reloadNow() {
+    await Promise.all([this.loadFeeds(), this.loadItems()]);
+  }
+
   /** Called after an OPML import: new feeds appear as they are fetched. */
   async reloadSoon() {
     const generation = this.generation;

@@ -200,12 +200,16 @@ type FeedSummary struct {
 
 // ListFeeds returns one user's feeds, sorted by title, with unread counts.
 func (s *Store) ListFeeds(ctx context.Context, userID int64) ([]FeedSummary, error) {
+	pattern, err := s.blockedPattern(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.db.QueryContext(ctx, `SELECT f.id, f.user_id, f.url, f.title, f.site_url, f.etag,
 			f.last_modified, f.last_fetched_at, f.last_error, f.error_count, f.next_fetch_at, f.full_text, f.category,
-			(SELECT count(*) FROM items i WHERE i.feed_id = f.id AND i.is_read = 0)
+			(SELECT count(*) FROM items i WHERE i.feed_id = f.id AND i.is_read = 0 AND `+notBlocked("i.title")+`)
 		FROM feeds f
 		WHERE f.user_id = ?
-		ORDER BY lower(CASE WHEN f.title != '' THEN f.title ELSE f.url END), f.id`, userID)
+		ORDER BY lower(CASE WHEN f.title != '' THEN f.title ELSE f.url END), f.id`, pattern, userID)
 	if err != nil {
 		return nil, err
 	}

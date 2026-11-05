@@ -52,6 +52,8 @@ export type UserSummary = {
   lastSeenAt: number | null;
 };
 
+export type BlockedWord = { id: number; word: string };
+
 export type ImportResult = { added: number; existing: number; invalid: number };
 
 /** An error response from the server. `message` is safe to show to the user. */
@@ -151,6 +153,10 @@ export const api = {
   setRead: (id: number, read: boolean) => request<void>('PUT', `/api/items/${id}/read`, json({ read })),
   readAll: (feedId?: number | null) =>
     request<{ marked: number }>('POST', '/api/read-all', json(feedId ? { feedId } : {})),
+
+  blockedWords: () => request<{ words: BlockedWord[] }>('GET', '/api/blocked-words'),
+  addBlockedWord: (word: string) => request<{ word: BlockedWord }>('POST', '/api/blocked-words', json({ word })),
+  deleteBlockedWord: (id: number) => request<void>('DELETE', `/api/blocked-words/${id}`),
 
   importOpml: (xml: string) => request<ImportResult>('POST', '/api/opml', { xml }),
 
