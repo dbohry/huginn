@@ -222,6 +222,12 @@ async function addFeed(page, address) {
       await page.waitForFunction(() => [...document.querySelectorAll('.item .dot.unread')].length === 0);
       assert.strictEqual(await unreadOf(page, 'Field Notes'), 0);
       assert.strictEqual(await unreadOf(page, 'Systems Weekly'), 2);
+      // The open article stays listed until something else is opened; a fresh load shows the empty list.
+      await page.reload();
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Field Notes/ }).click();
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Unread/ }).click();
+      await page.getByRole('heading', { name: "You're all caught up" }).waitFor();
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'All', exact: true }).click(); // back to how later steps expect it
     });
 
     await step('an article from a hostile feed cannot run code or show unsafe content', async () => {

@@ -13,7 +13,7 @@
   }
 
   const emptyText = $derived(
-    reader.unreadOnly ? 'Nothing unread. You are all caught up.' : feed ? 'No articles in this feed yet.' : 'No articles yet.',
+    feed ? 'No articles in this feed yet.' : 'No articles yet.',
   );
 
   // Unread articles in what is shown: the open feed, or every feed.
@@ -174,6 +174,15 @@
 
     {#if reader.loadingList && reader.items.length === 0}
       <p class="empty" role="status">Loading…</p>
+    {:else if reader.items.length === 0 && !reader.listError && reader.unreadOnly}
+      <div class="caughtup" role="status">
+        <span class="ring">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="tick" d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+        </span>
+        <h2>You're all caught up</h2>
+        <p>Nothing unread right now. New articles will show up here.</p>
+        <button class="button secondary" onclick={() => choose(false)}>Show all items</button>
+      </div>
     {:else if reader.items.length === 0 && !reader.listError}
       <p class="empty">{emptyText}</p>
     {/if}
@@ -497,6 +506,57 @@
     font-size: 13px;
     line-height: 1.45;
     color: var(--muted);
+  }
+  .caughtup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 56px 24px;
+    text-align: center;
+    animation: caughtin 0.5s ease both;
+  }
+  .caughtup .ring {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 10px;
+    border-radius: 50%;
+    background: var(--selected);
+    color: var(--accent);
+  }
+  .caughtup h2 {
+    margin: 0;
+    font-size: 17px;
+  }
+  .caughtup p {
+    margin: 0 0 14px;
+    max-width: 260px;
+    color: var(--muted);
+  }
+  .caughtup .tick {
+    stroke-dasharray: 30;
+    stroke-dashoffset: 30;
+    animation: tickdraw 0.5s 0.25s ease forwards;
+  }
+  @keyframes tickdraw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes caughtin {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .caughtup,
+    .caughtup .tick {
+      animation: none;
+      stroke-dashoffset: 0;
+    }
   }
   .empty {
     margin: 0;
