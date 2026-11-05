@@ -216,6 +216,20 @@ async function addFeed(page, address) {
       });
     });
 
+    await step('in "Unread" only, arrow down past the last article marks all read', async () => {
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Unread/ }).click();
+      await page.waitForFunction(() => document.querySelectorAll('.item').length > 0);
+      await page.evaluate(() => document.querySelector('.item').focus());
+      // Down steps through the unread articles; past the last one it marks everything read.
+      const caughtUp = page.getByRole('heading', { name: "You're all caught up" });
+      for (let i = 0; i < 20 && !(await caughtUp.isVisible()); i++) {
+        await page.keyboard.press('ArrowDown');
+        await page.waitForTimeout(300);
+      }
+      await page.getByRole('heading', { name: "You're all caught up" }).waitFor();
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'All', exact: true }).click();
+    });
+
     await step('"Mark all read" clears the counts for the feed', async () => {
       await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Unread/ }).click();
       await page.getByRole('button', { name: 'Mark all read' }).click();

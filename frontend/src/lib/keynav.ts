@@ -50,6 +50,12 @@ export function arrowNav(e: KeyboardEvent): boolean {
       return true;
     }
     if (zone === 'list') {
+      // In "Unread only", going down past the last article does what "Mark all read" does.
+      const last = reader.items.length - 1;
+      if (delta === 1 && reader.unreadOnly && !reader.next && last >= 0 && reader.selectedIndex === last) {
+        void reader.markAllRead();
+        return true;
+      }
       void reader.step(delta).then(() => focusItem(reader.selectedId));
       return true;
     }
