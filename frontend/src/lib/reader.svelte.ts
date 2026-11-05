@@ -413,6 +413,13 @@ class Reader {
       this.notify(marked === 0 ? `Nothing unread in ${scope}` : `${plural(marked, 'article', 'articles')} marked read in ${scope}`);
       await Promise.all([this.loadFeeds(), this.loadItems(false)]); // marking everything read empties Unread, the open article too
       if (this.selected && (this.feedId === null || this.selected.feedId === this.feedId)) {
+        if (this.unreadOnly) {
+          // Everything left the list, so the article that was open has nowhere to stay.
+          this.selected = null;
+          this.selectedId = null;
+          if (this.pane === 'article') this.goList();
+          return;
+        }
         this.selected.unread = false;
         const open = this.items.find((i) => i.id === this.selected?.id);
         if (open) open.unread = false;
