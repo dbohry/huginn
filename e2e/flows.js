@@ -224,6 +224,44 @@ async function addFeed(page, address) {
       assert.strictEqual(await unreadOf(page, 'Systems Weekly'), 2);
     });
 
+    await step('blocked words hide articles by whole word in the headline, and unblocking brings them back', async () => {
+      await page.goto(BASE + '/settings');
+      await openSection(page, 'Filters');
+      const add = async (word) => {
+        await page.getByRole('textbox', { name: 'Blocked words' }).fill(word);
+        await page.getByRole('button', { name: 'Add', exact: true }).click();
+      };
+      const chips = page.getByRole('list', { name: 'Blocked words' });
+      // Part of a word does not match: "Small servers, long uptimes" stays.
+      await add('uptime');
+      await chips.getByText('uptime', { exact: true }).waitFor();
+      await page.goto(BASE + '/');
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Systems Weekly/ }).click();
+      await page.getByText('Small servers, long uptimes').waitFor();
+      assert.strictEqual(await unreadOf(page, 'Systems Weekly'), 2);
+      // The whole word, in any capitalization, hides the article and its unread count.
+      await page.goto(BASE + '/settings');
+      await openSection(page, 'Filters');
+      await add('UPTIMES');
+      await chips.getByText('uptimes', { exact: true }).waitFor();
+      await add('uptimes'); // a second time says so
+      await page.getByText('That word is already blocked.').waitFor();
+      await page.goto(BASE + '/');
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Systems Weekly/ }).click();
+      await page.getByText('Plain text as an interface').first().waitFor();
+      assert.strictEqual(await page.getByText('Small servers, long uptimes').count(), 0);
+      assert.strictEqual(await unreadOf(page, 'Systems Weekly'), 1);
+      // Unblocking brings it back.
+      await page.goto(BASE + '/settings');
+      await openSection(page, 'Filters');
+      await page.getByRole('button', { name: 'Unblock uptimes' }).click();
+      await page.getByRole('button', { name: 'Unblock uptime', exact: true }).click();
+      await page.goto(BASE + '/');
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Systems Weekly/ }).click();
+      await page.getByText('Small servers, long uptimes').waitFor();
+      assert.strictEqual(await unreadOf(page, 'Systems Weekly'), 2);
+    });
+
     await step('an article from a hostile feed cannot run code or show unsafe content', async () => {
       await addFeed(page, site.url + '/hostile.xml');
       await page.getByRole('button', { name: /Totally harmless post/ }).click();

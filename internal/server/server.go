@@ -71,6 +71,10 @@ func (s *server) routes(assets fs.FS) http.Handler {
 	mux.Handle("PUT /api/items/{id}/read", s.authed(false, s.setRead))
 	mux.Handle("POST /api/read-all", s.authed(false, s.markAllRead))
 
+	mux.Handle("GET /api/blocked-words", s.authed(false, s.listBlockedWords))
+	mux.Handle("POST /api/blocked-words", s.authed(false, s.addBlockedWord))
+	mux.Handle("DELETE /api/blocked-words/{id}", s.authed(false, s.deleteBlockedWord))
+
 	mux.Handle("GET /api/starter", s.authed(false, s.listStarter))
 	mux.Handle("POST /api/starter/subscribe", s.authed(false, s.subscribeStarter))
 	mux.Handle("POST /api/starter/dismiss", s.authed(false, s.dismissStarter))

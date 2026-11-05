@@ -78,6 +78,14 @@ func (s *Store) ListItems(ctx context.Context, f ItemFilter) ([]Item, *Cursor, e
 		query = strings.Replace(query, " JOIN feeds f ON", " CROSS JOIN feeds f ON", 1)
 	}
 	args := []any{summaryListLimit, f.UserID}
+	pattern, err := s.blockedPattern(ctx, f.UserID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if pattern != "" {
+		query += ` AND ` + notBlocked("i.title")
+		args = append(args, pattern)
+	}
 	if f.FeedID != 0 {
 		query += ` AND i.feed_id = ?`
 		args = append(args, f.FeedID)
@@ -143,7 +151,8 @@ func (s *Store) SetRead(ctx context.Context, userID, id int64, read bool) error 
 }
 
 // MarkAllRead marks the user's unread articles read, in one feed or (feedID 0)
-// in all of them. It returns how many changed.
+// in all of them. Articles hidden by blocked words are left as they are. It
+// returns how many changed.
 func (s *Store) MarkAllRead(ctx context.Context, userID, feedID int64) (int64, error) {
 	query := `UPDATE items SET is_read = 1 WHERE is_read = 0 AND feed_id IN (SELECT id FROM feeds WHERE user_id = ?`
 	args := []any{userID}
@@ -151,7 +160,16 @@ func (s *Store) MarkAllRead(ctx context.Context, userID, feedID int64) (int64, e
 		query += ` AND id = ?`
 		args = append(args, feedID)
 	}
-	res, err := s.db.ExecContext(ctx, query+`)`, args...)
+	query += `)`
+	pattern, err := s.blockedPattern(ctx, userID)
+	if err != nil {
+		return 0, err
+	}
+	if pattern != "" {
+		query += ` AND ` + notBlocked("items.title")
+		args = append(args, pattern)
+	}
+	res, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}
