@@ -314,7 +314,7 @@
             <p class="sub">Hide articles whose headline contains a word you do not want to see.</p>
           </div>
           <div class="group">
-            <form class="row stack" onsubmit={addBlocked}>
+            <form class="row blocked" onsubmit={addBlocked}>
               <div class="text">
                 <label class="lbl" for="blocked-new">Blocked words</label>
                 <span class="desc">Whole words, in any capitalization. “bitcoin” hides “Bitcoin hits a new high” but not “Bitcoiner”. A short phrase works too. Hidden articles are not counted as unread.</span>
@@ -817,9 +817,23 @@
     border-radius: 8px;
     background: var(--bg);
   }
+  .row.blocked {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 12px;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+  .row.blocked .text {
+    flex: 0 0 auto;
+  }
   .addword {
     display: flex;
     gap: 8px;
+    max-width: 480px;
+  }
+  .addword .text-input {
+    max-width: none;
   }
   .chips {
     display: flex;
