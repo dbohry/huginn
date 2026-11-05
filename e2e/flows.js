@@ -217,12 +217,14 @@ async function addFeed(page, address) {
     });
 
     await step('"Mark all read" clears the counts for the feed', async () => {
+      await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Unread/ }).click();
       await page.getByRole('button', { name: 'Mark all read' }).click();
       await page.getByText(/\d+ articles? marked read in Field Notes/).waitFor(); // and says so
       await page.waitForFunction(() => [...document.querySelectorAll('.item .dot.unread')].length === 0);
       assert.strictEqual(await unreadOf(page, 'Field Notes'), 0);
       assert.strictEqual(await unreadOf(page, 'Systems Weekly'), 2);
-      // The open article stays listed until something else is opened; a fresh load shows the empty list.
+      // The list empties at once, even with an article open.
+      await page.getByRole('heading', { name: "You're all caught up" }).waitFor();
       await page.reload();
       await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Field Notes/ }).click();
       await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Unread/ }).click();
