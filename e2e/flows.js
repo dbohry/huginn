@@ -227,6 +227,8 @@ async function addFeed(page, address) {
         await page.waitForTimeout(300);
       }
       await page.getByRole('heading', { name: "You're all caught up" }).waitFor();
+      // The last article does not stay open in the reading pane.
+      assert.strictEqual(await page.locator('section.pane[aria-label="Article"] h2').count(), 0);
       await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: 'All', exact: true }).click();
     });
 
