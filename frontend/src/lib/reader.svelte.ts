@@ -188,14 +188,14 @@ class Reader {
     }
   }
 
-  /** Starts the list again from the newest article. */
-  async loadItems() {
+  /** Starts the list again from the newest article. `keepOpened` is false when nothing should stay behind. */
+  async loadItems(keepOpened = true) {
     const token = ++this.listToken;
     this.loadingList = true;
     try {
       const page = await api.items({ feedId: this.feedId, unreadOnly: this.unreadOnly });
       if (token !== this.listToken) return;
-      this.items = this.keepOpen(page.items);
+      this.items = keepOpened ? this.keepOpen(page.items) : page.items;
       this.next = page.next;
       this.listError = '';
     } catch (e) {
@@ -411,7 +411,7 @@ class Reader {
     try {
       const { marked } = await api.readAll(this.feedId);
       this.notify(marked === 0 ? `Nothing unread in ${scope}` : `${plural(marked, 'article', 'articles')} marked read in ${scope}`);
-      await Promise.all([this.loadFeeds(), this.loadItems()]);
+      await Promise.all([this.loadFeeds(), this.loadItems(false)]); // marking everything read empties Unread, the open article too
       if (this.selected && (this.feedId === null || this.selected.feedId === this.feedId)) {
         this.selected.unread = false;
         const open = this.items.find((i) => i.id === this.selected?.id);
