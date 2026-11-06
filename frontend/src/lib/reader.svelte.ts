@@ -36,6 +36,8 @@ class Reader {
   loadingFull = $state(false);
   refreshing = $state(false);
   refreshingFeedId = $state<number | null>(null);
+  /** Bumped each time refreshing every feed succeeds, so the refresh button can show it finished. */
+  refreshedAt = $state(0);
   /** Why the list could not be loaded, or "". Offered with a Retry button. */
   listError = $state('');
   toast = $state<Toast | null>(null);
@@ -443,6 +445,7 @@ class Reader {
         if (generation !== this.generation) return;
         await Promise.all([this.loadFeeds(), this.loadItems()]);
       }
+      this.refreshedAt = Date.now();
       this.notify('Feeds refreshed');
     } catch (e) {
       this.notify(message(e), 'error');

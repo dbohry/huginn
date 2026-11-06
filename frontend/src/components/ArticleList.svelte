@@ -2,7 +2,8 @@
   import { link } from '../lib/router.svelte';
   import { ago, updated } from '../lib/time';
   import { reader } from '../lib/reader.svelte';
-  import { fly } from 'svelte/transition';
+  import { fade, fly } from 'svelte/transition';
+  import { untrack } from 'svelte';
   import { cubicOut } from 'svelte/easing';
 
   const feed = $derived(reader.currentFeed);
@@ -32,6 +33,46 @@
       css: (t: number) => `height:${t * height}px;opacity:${t};overflow:hidden;`,
     };
   }
+
+  // The raven's wing strokes in three poses: raised, level and lowered. The wings beat by morphing between them.
+  const WINGS = [
+    'M4 6.5C7 7.5 10 10.5 12 15C14 10.5 17 7.5 20 6.5',
+    'M2 11.5C5.5 10 9.5 10.5 12 13.5C14.5 10.5 18.5 10 22 11.5',
+    'M4.5 17.5C6.5 13.5 9.5 11.5 12 12C14.5 11.5 17.5 13.5 19.5 17.5',
+  ];
+  const WINGBEAT = [WINGS[0], WINGS[1], WINGS[2], WINGS[1], WINGS[0]].join(';');
+
+  // Articles a refresh adds to the list that is already showing. They unfold in from the top.
+  // A different list (another feed or filter) shares no articles with the old one, so nothing in it counts.
+  let shownIds = new Set<number>();
+  let arrivals: number[] = [];
+  $effect.pre(() => {
+    const ids = reader.items.map((i) => i.id);
+    const sameList = ids.some((id) => shownIds.has(id));
+    const refreshing = untrack(() => reader.refreshing || reader.refreshingFeedId !== null);
+    arrivals = refreshing && sameList ? ids.filter((id) => !shownIds.has(id)) : [];
+    shownIds = new Set(ids);
+  });
+  function arrive(node: HTMLElement, id: number) {
+    const order = arrivals.indexOf(id);
+    if (order < 0 || reduceMotion()) return { duration: 0 };
+    const height = node.offsetHeight;
+    return {
+      delay: Math.min(order, 5) * 60,
+      duration: 340,
+      easing: cubicOut,
+      css: (t: number) => `height:${t * height}px;opacity:${t};overflow:hidden;transform:translateY(${(t - 1) * 6}px);`,
+    };
+  }
+
+  // After every feed has been refreshed, the button shows a ring closing on a tick for a moment.
+  let refreshed = $state(false);
+  $effect(() => {
+    if (!reader.refreshedAt) return;
+    refreshed = true;
+    const timer = setTimeout(() => (refreshed = false), 1100);
+    return () => clearTimeout(timer);
+  });
 
   // Bumped once the list for a new filter has arrived, so the rows ease in then, not before.
   let swap = $state(0);
@@ -66,9 +107,30 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
     </button>
     <h1 tabindex="-1">{reader.title}</h1>
-    <button class="icon" aria-label="Refresh all feeds" disabled={reader.refreshing || firstRun} onclick={() => reader.refresh()}>
-      <svg class:spin={reader.refreshing} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /></svg>
+    <button
+      class="icon refresh"
+      class:busy={reader.refreshing}
+      class:refreshed
+      aria-label="Refresh all feeds"
+      disabled={reader.refreshing || firstRun}
+      onclick={() => reader.refresh()}
+    >
+      <svg class="arrow" class:spin={reader.refreshing} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 4v5h-5" /></svg>
+      <svg class="done" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle class="ring" cx="12" cy="12" r="9" /><path class="tk" d="M8.2 12.4l2.6 2.6L16 9.8" /></svg>
     </button>
+    {#if reader.refreshing}
+      <!-- Huginn, the raven, glides along the header's edge and draws the progress line behind it. -->
+      <span class="glide" aria-hidden="true" transition:fade={{ duration: reduceMotion() ? 0 : 200 }}>
+        <span class="run">
+          <span class="trail"></span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d={WINGS[1]}>
+              <animate attributeName="d" dur="0.55s" repeatCount="indefinite" calcMode="spline" keyTimes="0;.25;.5;.75;1" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1" values={WINGBEAT} />
+            </path>
+          </svg>
+        </span>
+      </span>
+    {/if}
   </header>
 
   {#if !firstRun}
@@ -150,7 +212,7 @@
     {#key swap}
     <ul class:swap={swap > 0}>
       {#each reader.items as item (item.id)}
-        <li out:leave>
+        <li in:arrive={item.id} out:leave>
           <button
             id="item-{item.id}"
             class="item"
@@ -261,12 +323,113 @@
     opacity: 0.5;
     cursor: default;
   }
+  /* Eases in and out of every turn, so it reads as working rather than stuck. */
   .spin {
-    animation: spin 1s linear infinite;
+    animation: spin 0.95s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
   }
   @keyframes spin {
     to {
       transform: rotate(360deg);
+    }
+  }
+  /* Refresh all feeds: the arrow turns in the accent colour while the raven glides, then a ring closes on a tick. */
+  .refresh > svg {
+    grid-area: 1 / 1;
+  }
+  .refresh.busy:disabled {
+    opacity: 1;
+    color: var(--accent);
+  }
+  .refresh .arrow {
+    transition:
+      transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 0.18s;
+  }
+  .refresh.refreshed .arrow {
+    opacity: 0;
+    transform: rotate(-140deg) scale(0.6);
+  }
+  .refresh .done {
+    color: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .refresh.refreshed .done {
+    opacity: 1;
+  }
+  .done .ring {
+    stroke-dasharray: 57;
+    stroke-dashoffset: 57;
+    transform: rotate(-90deg);
+    transform-origin: 12px 12px;
+  }
+  .done .tk {
+    stroke-dasharray: 12;
+    stroke-dashoffset: 12;
+  }
+  .refreshed .done .ring {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .refreshed .done .tk {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s;
+  }
+  .glide {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 0;
+    pointer-events: none;
+    color: var(--accent);
+  }
+  .run {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    animation: glide 2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .trail {
+    position: absolute;
+    right: 100%;
+    bottom: -1px;
+    width: 96px;
+    height: 2px;
+    margin-right: -4px;
+    background: linear-gradient(90deg, transparent, var(--accent));
+  }
+  .run svg {
+    position: absolute;
+    left: -2px;
+    bottom: -4px;
+  }
+  @keyframes glide {
+    from {
+      transform: translateX(-24px);
+    }
+    to {
+      transform: translateX(calc(100% + 120px));
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spin {
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    .glide {
+      display: none;
+    }
+    .refresh .arrow,
+    .refresh .done,
+    .done .ring,
+    .done .tk {
+      transition: none !important;
+    }
+  }
+  @keyframes pulse {
+    50% {
+      opacity: 0.4;
     }
   }
   .tools {
