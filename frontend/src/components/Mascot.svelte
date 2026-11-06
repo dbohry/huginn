@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  // The pixel raven, drawn from the same grid as docs/mascot/generate.py.
+  // The pixel raven, drawn as one SVG rect per pixel from the grid below.
   // X body, W wing feathers, B beak, o eye (left empty so the background shows through).
   const GRID = [
     '....XXXXXXXXX....',
