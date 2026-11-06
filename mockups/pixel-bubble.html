@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pixel speech bubble mockups</title>
+<style>
+  /* Theme tokens copied from frontend/src/theme.css */
+  .light { --bg:#fff; --surface:#f6f6f4; --border:#dcdcd7; --text:#1b1b1a; --muted:#62625e; --accent:#2457d6; --raven-wing:#163a8f; --raven-beak:#f5a524; }
+  .dark  { --bg:#141414; --surface:#1b1b1b; --border:#333330; --text:#ececea; --muted:#a3a39e; --accent:#8aa9ff; --raven-wing:#2457d6; --raven-beak:#ffb84d; }
+
+  body { margin:0; font-family: Inter, system-ui, sans-serif; font-size:15px; }
+  .theme { background:var(--bg); color:var(--muted); padding:28px 32px; display:grid; grid-template-columns:repeat(3, 1fr); gap:24px; }
+  .card h2 { margin:0 0 4px; font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+  .card p.note { margin:0 0 18px; font-size:12px; }
+  .stage { display:flex; justify-content:center; padding:18px 0 6px; }
+  .perch { display:flex; align-items:flex-start; gap:14px; }
+
+  /* One "bird pixel": the raven drawn at 63px tall is exactly 3px per pixel. */
+  .bubble { --p:3px; --edge:var(--border); --fill:var(--surface); position:relative; margin-top:6px; color:var(--text); }
+  .bubble .body {
+    position:relative; padding:9px 15px;
+    background:var(--edge);
+    clip-path: polygon(
+      calc(var(--p)*2) 0, calc(100% - var(--p)*2) 0,
+      calc(100% - var(--p)*2) var(--p), calc(100% - var(--p)) var(--p),
+      calc(100% - var(--p)) calc(var(--p)*2), 100% calc(var(--p)*2),
+      100% calc(100% - var(--p)*2), calc(100% - var(--p)) calc(100% - var(--p)*2),
+      calc(100% - var(--p)) calc(100% - var(--p)), calc(100% - var(--p)*2) calc(100% - var(--p)),
+      calc(100% - var(--p)*2) 100%, calc(var(--p)*2) 100%,
+      calc(var(--p)*2) calc(100% - var(--p)), var(--p) calc(100% - var(--p)),
+      var(--p) calc(100% - var(--p)*2), 0 calc(100% - var(--p)*2),
+      0 calc(var(--p)*2), var(--p) calc(var(--p)*2),
+      var(--p) var(--p), calc(var(--p)*2) var(--p));
+  }
+  .bubble .body::before {
+    content:''; position:absolute; inset:var(--p); background:var(--fill);
+    clip-path: polygon(
+      var(--p) 0, calc(100% - var(--p)) 0, calc(100% - var(--p)) var(--p), 100% var(--p),
+      100% calc(100% - var(--p)), calc(100% - var(--p)) calc(100% - var(--p)),
+      calc(100% - var(--p)) 100%, var(--p) 100%, var(--p) calc(100% - var(--p)),
+      0 calc(100% - var(--p)), 0 var(--p), var(--p) var(--p));
+  }
+  .bubble .body span { position:relative; white-space:nowrap; }
+  .bubble svg.tail { position:absolute; top:50%; right:calc(var(--p) * -3); margin-top:calc(var(--p) * -2.5); }
+  .bubble svg.tail .e { fill:var(--edge); }
+  .bubble svg.tail .f { fill:var(--fill); }
+
+  /* B: outlined in the raven's body colour, wing-coloured pixel drop shadow. */
+  .bubble.accent { --edge:var(--accent); filter: drop-shadow(var(--p) var(--p) 0 var(--raven-wing)); }
+
+  /* C: filled like the raven, text knocked out of it. */
+  .bubble.solid { --edge:var(--raven-wing); --fill:var(--accent); color:var(--bg); font-weight:600; }
+
+  .hint { margin-top:-1px; padding:10px 14px; border:1px solid var(--border); border-radius:12px; font-size:13px; }
+  kbd { padding:1px 6px; border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; background:var(--surface); font:12px ui-monospace, Menlo, monospace; color:var(--text); }
+  .scene { display:flex; flex-direction:column; align-items:flex-end; }
+  .scene .perch { padding-right:20px; }
+</style>
+</head>
+<body>
+<template id="variant">
+  <div class="card">
+    <h2></h2><p class="note"></p>
+    <div class="stage"><div class="scene">
+      <div class="perch">
+        <div class="bubble"><div class="body"><span>Select an article to read it.</span></div><svg class="tail"></svg></div>
+        <svg class="mascot"></svg>
+      </div>
+      <p class="hint" style="margin:0"><kbd>←</kbd> <kbd>→</kbd> between panes, <kbd>m</kbd> marks read or unread.</p>
+    </div></div>
+  </div>
+</template>
+<div class="theme dark" id="dark"></div>
+<div class="theme light" id="light"></div>
+<script>
+  const GRID = ['....XXXXXXXXX....','...XXXXXXXXXXX...','..XXXXXXXXXXXXX..','..XXXoXXXXXoXXX..','..XXXXXXBXXXXXX..','..XXXXXBBBXXXXX..','...XXXXBBBXXXX...','....XXXXBXXXX....','.XX.XXXXXXXXX.XX.','XWWXXXXXXXXXXXWWX','XWWWXXXXXXXXXWWWX','XWWWXXXXXXXXXWWWX','.WWWXXXXXXXXXWWW.','..WWXXXXXXXXXWW..','...WXXXXXXXXXW...','....XXXXXXXXX....','.....XX...XX.....','....XXX...XXX....'];
+  const col = { X:'var(--accent)', W:'var(--raven-wing)', B:'var(--raven-beak)' };
+  const pixels = (rows, cls) => rows.flatMap((r,y)=>[...r].map((c,x)=>cls[c]?`<rect x="${x}" y="${y}" width="1" height="1" ${cls[c]}/>`:'')).join('');
+  // Tail, 4 x 5 bird pixels: e = edge, f = fill. The first column covers the bubble's right border.
+  const TAIL = ['ee..','ffe.','fffe','ffe.','ee..'];
+  const variants = [
+    ['A · Pixel outline', 'Stepped corners and a staircase tail on the 3px grid the raven uses. Same colours as today.', ''],
+    ['B · Raven outline', 'Edge in the raven’s body blue with a wing-blue pixel drop shadow, like the wing shading.', 'accent'],
+    ['C · Raven fill', 'Bubble filled like the raven’s body, wing-blue edge. Loudest; reads as part of the bird.', 'solid'],
+  ];
+  for (const theme of ['dark','light']) for (const [title, note, cls] of variants) {
+    const n = document.getElementById('variant').content.cloneNode(true);
+    n.querySelector('h2').textContent = title; n.querySelector('.note').textContent = note;
+    if (cls) n.querySelector('.bubble').classList.add(cls);
+    const t = n.querySelector('svg.tail');
+    t.setAttribute('width', 12); t.setAttribute('height', 15); t.setAttribute('viewBox','0 0 4 5'); t.setAttribute('shape-rendering','crispEdges');
+    t.innerHTML = pixels(TAIL, { e:'class="e"', f:'class="f"' });
+    const m = n.querySelector('svg.mascot');
+    m.setAttribute('width', 51); m.setAttribute('height', 54); m.setAttribute('viewBox','0 0 17 18'); m.setAttribute('shape-rendering','crispEdges');
+    m.innerHTML = pixels(GRID, Object.fromEntries(Object.entries(col).map(([k,v])=>[k,`style="fill:${v}"`])));
+    document.getElementById(theme).appendChild(n);
+  }
+</script>
+</body>
+</html>
