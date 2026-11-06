@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import Logo from './Logo.svelte';
+  import Mascot from './Mascot.svelte';
   import { appearance } from '../lib/appearance.svelte';
   import { reader } from '../lib/reader.svelte';
   import { ui } from '../lib/ui.svelte';
@@ -94,12 +94,18 @@
       {/if}
     </article>
   {:else}
+    {@const shortcuts = appearance.shortcuts && !ui.narrow}
     <div class="placeholder">
-      <span class="mark"><Logo size={44} /></span>
-      <p>Select an article to read it.</p>
-      {#if appearance.shortcuts && !ui.narrow}
-        <p class="hint"><kbd>↑</kbd> <kbd>↓</kbd> (or <kbd>j</kbd> <kbd>k</kbd>) move between articles, <kbd>←</kbd> <kbd>→</kbd> between panes, <kbd>m</kbd> marks read or unread.</p>
-      {/if}
+      <!-- The raven says the line in a speech bubble, perched on the shortcuts box when it shows. -->
+      <div class="scene">
+        <div class="perch" class:onbox={shortcuts}>
+          <p class="bubble">Select an article to read it.</p>
+          <Mascot size={56} />
+        </div>
+        {#if shortcuts}
+          <p class="hint"><kbd>↑</kbd> <kbd>↓</kbd> (or <kbd>j</kbd> <kbd>k</kbd>) move between articles, <kbd>←</kbd> <kbd>→</kbd> between panes, <kbd>m</kbd> marks read or unread.</p>
+        {/if}
+      </div>
     </div>
   {/if}
 </section>
@@ -332,11 +338,52 @@
   .placeholder p {
     margin: 0;
   }
-  .mark {
-    margin-bottom: 8px;
-    opacity: 0.5;
+  .placeholder {
+    gap: 0;
   }
-  .hint {
+  /* As wide as the shortcuts box, so the raven lands on its corner. */
+  .scene {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 100%;
+  }
+  .perch {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  /* On the box: the raven stands on its top-right corner, feet on the border. */
+  .perch.onbox {
+    align-self: stretch;
+    justify-content: flex-end;
+    padding-right: 20px;
+  }
+  .bubble {
+    position: relative;
+    margin-top: 4px;
+    padding: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+  }
+  /* The tail, pointing at the raven's beak. */
+  .bubble::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -6px;
+    width: 10px;
+    height: 10px;
+    margin-top: -5px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    transform: rotate(45deg);
+  }
+  .placeholder .hint {
+    margin: 0;
     font-size: 13px;
   }
   kbd {
