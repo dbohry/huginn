@@ -190,10 +190,13 @@ class Reader {
     }
   }
 
-  /** Starts the list again from the newest article. `keepOpened` is false when nothing should stay behind. */
-  async loadItems(keepOpened = true) {
+  /**
+   * Starts the list again from the newest article. `keepOpened` is false when nothing should stay behind.
+   * `quiet` skips the loading state, so a list that is already showing (or an empty-state message) does not flash.
+   */
+  async loadItems(keepOpened = true, quiet = false) {
     const token = ++this.listToken;
-    this.loadingList = true;
+    if (!quiet) this.loadingList = true;
     try {
       const page = await api.items({ feedId: this.feedId, unreadOnly: this.unreadOnly });
       if (token !== this.listToken) return;
@@ -443,7 +446,7 @@ class Reader {
       for (const wait of [2000, 4000, 8000]) {
         await sleep(wait);
         if (generation !== this.generation) return;
-        await Promise.all([this.loadFeeds(), this.loadItems()]);
+        await Promise.all([this.loadFeeds(), this.loadItems(true, true)]);
       }
       this.refreshedAt = Date.now();
       this.notify('Feeds refreshed');
@@ -466,7 +469,7 @@ class Reader {
     } catch (e) {
       failure = message(e);
     }
-    await Promise.all([this.loadFeeds(), this.loadItems()]);
+    await Promise.all([this.loadFeeds(), this.loadItems(true, true)]);
     if (generation !== this.generation) return;
     this.refreshingFeedId = null;
     if (failure) this.notify(failure, 'error');
