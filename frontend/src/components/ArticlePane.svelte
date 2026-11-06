@@ -365,7 +365,7 @@
     --p: 3px;
     position: relative;
     isolation: isolate;
-    margin-top: 6px;
+    margin-top: 12px;
     color: var(--text);
     line-height: 21px;
   }
