@@ -1,25 +1,25 @@
 <script lang="ts" module>
   // The pixel raven, drawn as one SVG rect per pixel from the grid below.
-  // X body, W wing feathers, B beak, o eye (left empty so the background shows through).
+  // X body, L belly, W wing feathers, B beak, F feet, o eye, h the glint in the eye.
   const GRID = [
-    '....XXXXXXXXX....',
+    '.....XXXXXXX.....',
     '...XXXXXXXXXXX...',
     '..XXXXXXXXXXXXX..',
-    '..XXXoXXXXXoXXX..',
-    '..XXXXXXBXXXXXX..',
+    '..XXhoXXXXXhoXX..',
+    '..XXooXXXXXooXX..',
     '..XXXXXBBBXXXXX..',
-    '...XXXXBBBXXXX...',
-    '....XXXXBXXXX....',
-    '.XX.XXXXXXXXX.XX.',
-    'XWWXXXXXXXXXXXWWX',
-    'XWWWXXXXXXXXXWWWX',
-    'XWWWXXXXXXXXXWWWX',
-    '.WWWXXXXXXXXXWWW.',
-    '..WWXXXXXXXXXWW..',
+    '...XXXXXBXXXXX...',
+    '....XXXXXXXXX....',
+    '.XX.XXLLLLLXX.XX.',
+    'XWWXXLLLLLLLXXWWX',
+    'XWWWXLLLLLLLXWWWX',
+    'XWWWXLLLLLLLXWWWX',
+    '.WWWXXLLLLLXXWWW.',
+    '..WWXXXLLLXXXWW..',
     '...WXXXXXXXXXW...',
     '....XXXXXXXXX....',
-    '.....XX...XX.....',
-    '....XXX...XXX....',
+    '.....FF...FF.....',
+    '....FFF...FFF....',
   ];
   const WING_ROW = 8;
   const BODY_L = 4;
@@ -38,7 +38,7 @@
     [...row].forEach((c, x) => {
       if (c === '.') return;
       const cell = { x, y, c };
-      if (c === 'o') parts.eyes.push(cell);
+      if (c === 'o' || c === 'h') parts.eyes.push(cell);
       else if (y >= LEG_ROW) parts.legs.push(cell);
       else if (y >= WING_ROW && x < BODY_L) parts.wingL.push(cell);
       else if (y >= WING_ROW && x > BODY_R) parts.wingR.push(cell);
@@ -72,6 +72,7 @@
   <g class="hop">
     <g class="upper">
       {@render cells(parts.upper)}
+      {@render cells(parts.eyes)}
       <g class="lids">
         {#each parts.eyes as { x, y }, i (i)}<rect {x} {y} width="1" height="1" class="X" />{/each}
       </g>
@@ -93,8 +94,18 @@
   .W {
     fill: var(--raven-wing);
   }
-  .B {
+  .L {
+    fill: var(--raven-belly);
+  }
+  .B,
+  .F {
     fill: var(--raven-beak);
+  }
+  .o {
+    fill: var(--raven-eye);
+  }
+  .h {
+    fill: var(--raven-glint);
   }
   g {
     animation-duration: 5s;

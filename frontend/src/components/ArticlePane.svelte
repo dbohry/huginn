@@ -99,8 +99,8 @@
       <!-- The raven says the line in a speech bubble, perched on the shortcuts box when it shows. -->
       <div class="scene">
         <div class="perch" class:onbox={shortcuts}>
-          <p class="bubble">Select an article to read it.</p>
-          <Mascot size={56} />
+          <p class="bubble"><span class="body">Select an article to read it.</span></p>
+          <Mascot size={63} />
         </div>
         {#if shortcuts}
           <p class="hint"><kbd>↑</kbd> <kbd>↓</kbd> (or <kbd>j</kbd> <kbd>k</kbd>) move between articles, <kbd>←</kbd> <kbd>→</kbd> between panes, <kbd>m</kbd> marks read or unread.</p>
@@ -351,7 +351,7 @@
   .perch {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 14px;
   }
   /* On the box: the raven stands on its top-right corner, feet on the border. */
   .perch.onbox {
@@ -359,28 +359,69 @@
     justify-content: flex-end;
     padding-right: 20px;
   }
-  .bubble {
+  /* Pixel art like the raven: drawn at 63px it is 3px a pixel, and so is every step here.
+     The body is the border colour, clipped to stepped corners, with the fill inset one pixel. */
+  .placeholder .bubble {
+    --p: 3px;
     position: relative;
-    margin-top: 4px;
-    padding: 8px 14px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    isolation: isolate;
+    margin-top: 6px;
     color: var(--text);
+    line-height: 21px;
   }
-  /* The tail, pointing at the raven's beak. */
+  .bubble .body {
+    position: relative;
+    z-index: 0;
+    display: block;
+    padding: 9px 15px;
+    background: var(--border);
+    white-space: nowrap;
+    clip-path: polygon(
+      calc(var(--p) * 2) 0, calc(100% - var(--p) * 2) 0,
+      calc(100% - var(--p) * 2) var(--p), calc(100% - var(--p)) var(--p),
+      calc(100% - var(--p)) calc(var(--p) * 2), 100% calc(var(--p) * 2),
+      100% calc(100% - var(--p) * 2), calc(100% - var(--p)) calc(100% - var(--p) * 2),
+      calc(100% - var(--p)) calc(100% - var(--p)), calc(100% - var(--p) * 2) calc(100% - var(--p)),
+      calc(100% - var(--p) * 2) 100%, calc(var(--p) * 2) 100%,
+      calc(var(--p) * 2) calc(100% - var(--p)), var(--p) calc(100% - var(--p)),
+      var(--p) calc(100% - var(--p) * 2), 0 calc(100% - var(--p) * 2),
+      0 calc(var(--p) * 2), var(--p) calc(var(--p) * 2),
+      var(--p) var(--p), calc(var(--p) * 2) var(--p)
+    );
+  }
+  .bubble .body::before {
+    content: '';
+    position: absolute;
+    inset: var(--p);
+    z-index: -1;
+    background: var(--surface);
+    clip-path: polygon(
+      var(--p) 0, calc(100% - var(--p)) 0, calc(100% - var(--p)) var(--p), 100% var(--p),
+      100% calc(100% - var(--p)), calc(100% - var(--p)) calc(100% - var(--p)),
+      calc(100% - var(--p)) 100%, var(--p) 100%, var(--p) calc(100% - var(--p)),
+      0 calc(100% - var(--p)), 0 var(--p), var(--p) var(--p)
+    );
+  }
+  /* The tail: a staircase pointing at the raven's beak, 4 by 5 pixels, its first column over
+     the body's right border. ::before is the outline, ::after the fill that opens it. */
+  .bubble::before,
   .bubble::after {
     content: '';
     position: absolute;
-    top: 50%;
-    right: -6px;
-    width: 10px;
-    height: 10px;
-    margin-top: -5px;
+    top: calc(var(--p) * 4);
+    right: calc(var(--p) * -3);
+    width: calc(var(--p) * 4);
+    height: calc(var(--p) * 5);
+  }
+  .bubble::before {
+    z-index: -1;
+    background: var(--border);
+    clip-path: polygon(0 0, 50% 0, 50% 20%, 75% 20%, 75% 40%, 100% 40%, 100% 60%, 75% 60%, 75% 80%, 50% 80%, 50% 100%, 0 100%);
+  }
+  .bubble::after {
+    z-index: 1;
     background: var(--surface);
-    border-top: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    transform: rotate(45deg);
+    clip-path: polygon(0 20%, 50% 20%, 50% 40%, 75% 40%, 75% 60%, 50% 60%, 50% 80%, 0 80%);
   }
   .placeholder .hint {
     margin: 0;
