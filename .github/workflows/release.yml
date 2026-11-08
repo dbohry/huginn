@@ -1,18 +1,25 @@
 name: Release
 
-# Every merge to main builds the image for amd64 and arm64 and publishes it to
-# Docker Hub as dbohry/huginn:latest, then asks Portainer to redeploy it. It can
-# also be started by hand. Changes that cannot affect the image (docs) are skipped.
+# Every merge to main builds the image for amd64 and arm64, gives it the next
+# version (the patch number of the newest vX.Y.Z tag plus one; 1.0.0 when there is
+# none yet) and publishes it to Docker Hub as dbohry/huginn:X.Y.Z, :X.Y, :X and
+# :latest. The commit is then tagged vX.Y.Z and Portainer is asked to redeploy.
+# To release a new minor or major version, push its tag by hand (for example
+# git tag v1.1.0 && git push origin v1.1.0): that publishes exactly that version,
+# and the next merge counts on from it (1.1.1). Tags pushed by this workflow do not
+# start it again. It can also be started by hand. Merges that cannot affect the
+# image (docs) are skipped.
 on:
   push:
     branches: [main]
     paths-ignore:
       - '**.md'
       - 'docs/**'
+    tags: ['v*.*.*']
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # to push the version tag
 
 # One publish at a time, and a newer merge waits instead of cancelling a running push.
 concurrency:
@@ -24,6 +31,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the tags are needed to find the last version
+      - name: Work out the next version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            # A tag pushed by hand: publish exactly that version.
+            next=${GITHUB_REF_NAME#v}
+            if ! [[ $next =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Tag $GITHUB_REF_NAME is not vX.Y.Z"
+              exit 1
+            fi
+            echo "Version: $next (from tag $GITHUB_REF_NAME)"
+          else
+            last=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+            if [ -z "$last" ]; then
+              next=1.0.0
+            else
+              IFS=. read -r major minor patch <<< "${last#v}"
+              next="$major.$minor.$((patch + 1))"
+            fi
+            echo "Version: $next (previous: ${last:-none})"
+          fi
+          IFS=. read -r major minor patch <<< "$next"
+          echo "VERSION=$next" >> "$GITHUB_ENV"
+          echo "VERSION_MINOR=$major.$minor" >> "$GITHUB_ENV"
+          echo "VERSION_MAJOR=$major" >> "$GITHUB_ENV"
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
       # Repository secrets: DOCKERHUB_USERNAME, and DOCKERHUB_TOKEN (an access token with
@@ -32,8 +65,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      # The version shown in the app: the commit this image was built from.
-      - run: echo "VERSION=main-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
       - uses: docker/build-push-action@v7
         with:
           context: .
@@ -42,10 +73,20 @@ jobs:
           tags: |
             dbohry/huginn:latest
             dbohry/huginn:${{ env.VERSION }}
+            dbohry/huginn:${{ env.VERSION_MINOR }}
+            dbohry/huginn:${{ env.VERSION_MAJOR }}
           build-args: VERSION=${{ env.VERSION }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ env.VERSION }}
+      # Only after the image is published, so a failed build does not use up a version.
+      # A release started by a tag already has one.
+      - name: Tag the release
+        if: github.ref_type != 'tag'
+        run: |
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
 
   deploy:
     name: Deploy

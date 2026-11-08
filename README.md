@@ -63,7 +63,7 @@ Then open <http://localhost:8080>. The first visit asks you to create the admini
 
 Everything Huginn stores lives in the `/data` volume. To back it up, copy that volume.
 
-> To build the image yourself, run `docker build -t huginn .` and use `huginn` instead of `dbohry/huginn:latest` above.
+> Each release is also published with its own version (for example `dbohry/huginn:1.0.3`, plus `1.0` and `1`) if you want to pin one. To build the image yourself, run `docker build -t huginn .` and use `huginn` instead of `dbohry/huginn:latest` above.
 
 ### Settings
 
