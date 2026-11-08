@@ -2,6 +2,7 @@
   import { link } from '../lib/router.svelte';
   import { ago, updated } from '../lib/time';
   import { reader } from '../lib/reader.svelte';
+  import { ui } from '../lib/ui.svelte';
   import { fade, fly } from 'svelte/transition';
   import { untrack } from 'svelte';
   import { cubicOut } from 'svelte/easing';
@@ -12,6 +13,22 @@
   async function unfollow() {
     if (feed && confirm(`Stop following ${feed.title}? Its articles are deleted too.`)) await reader.removeFeed(feed.id);
   }
+
+  // Under the title: which feed a refresh of every feed is on, else when the feeds were last updated.
+  const status = $derived.by(() => {
+    if (reader.refreshing) {
+      if (!reader.fetchingFeed) return 'Refreshing feeds…';
+      const done = Math.max(0, reader.refreshTotal - reader.refreshLeft);
+      return `Refreshing ${reader.fetchingFeed.title}…` + (reader.refreshTotal > 1 ? ` ${done + 1} of ${reader.refreshTotal}` : '');
+    }
+    if (feed || firstRun) return '';
+    return updated(reader.lastFetchedAt, ui.now);
+  });
+
+  // A feed's own line: what a refresh is doing with it, else when it was last fetched.
+  const feedStatus = $derived(
+    !feed ? '' : feed.refresh === 'fetching' ? 'Refreshing…' : feed.refresh === 'queued' ? 'Waiting to be refreshed…' : updated(feed.lastFetchedAt, ui.now),
+  );
 
   const emptyText = $derived(
     feed ? 'No articles in this feed yet.' : 'No articles yet.',
@@ -106,7 +123,10 @@
     <button class="icon mobile-only" aria-label="Show feeds" onclick={() => reader.showFeeds()}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
     </button>
-    <h1 tabindex="-1">{reader.title}</h1>
+    <div class="titles">
+      <h1 tabindex="-1">{reader.title}</h1>
+      {#if status}<p class="status" class:busy={reader.refreshing}>{status}</p>{/if}
+    </div>
     <button
       class="icon refresh"
       class:busy={reader.refreshing}
@@ -155,7 +175,7 @@
   {#if feed}
     <div class="feedbar">
       <p class="updated">
-        {updated(feed.lastFetchedAt)}
+        {feedStatus}
         {#if feed.error}<span class="feederror">Could not be fetched: {feed.error}</span>{/if}
       </p>
       <div class="feedactions">
@@ -293,8 +313,24 @@
     background: var(--bg);
     z-index: 1;
   }
-  h1 {
+  .titles {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .status {
+    margin: 1px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .status.busy {
+    color: var(--accent);
+  }
+  h1 {
     margin: 0;
     font-size: 15px;
     font-weight: 600;

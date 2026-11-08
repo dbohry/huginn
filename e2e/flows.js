@@ -332,6 +332,25 @@ async function addFeed(page, address) {
       await page.getByText('Feed refreshed').waitFor();
     });
 
+    await step('refreshing every feed shows which feed it is on, then when they were updated', async () => {
+      await addFeed(page, site.url + '/slow.xml');
+      await page.getByRole('heading', { name: 'Slow Feed', level: 1 }).waitFor();
+      const nav = page.getByRole('navigation', { name: 'Feeds' });
+      await nav.getByRole('button', { name: 'All items' }).click();
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
+      await page.getByRole('button', { name: 'Refresh all feeds' }).click();
+      // The header names the feed being fetched, and its row in the sidebar says so too.
+      await page.getByText(/^Refreshing Slow Feed… \d+ of \d+$/).waitFor();
+      await nav.getByRole('button', { name: /^Slow Feed/ }).getByText('Refreshing.').waitFor({ state: 'attached' });
+      await page.getByText('Feeds refreshed').waitFor();
+      await page.getByText('Updated just now').waitFor();
+      assert.match(await nav.getByRole('button', { name: /^Slow Feed/ }).getAttribute('title'), /Updated just now/);
+      assert.strictEqual(await nav.getByText('Refreshing.').count(), 0, 'no feed is left spinning');
+      await nav.getByRole('button', { name: /^Slow Feed/ }).click();
+      await page.getByRole('button', { name: 'Unfollow' }).click();
+      await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
+    });
+
     await step('a feed that starts failing says so, and why', async () => {
       await addFeed(page, site.url + '/flaky.xml');
       await page.getByRole('heading', { name: 'Flaky Feed', level: 1 }).waitFor();
