@@ -409,6 +409,9 @@ func TestRefreshAllRunsInTheBackground(t *testing.T) {
 	if feeds[0]["lastFetchedAt"] == nil {
 		t.Error("the feed has no last-fetched time")
 	}
+	if feeds[0]["refresh"] != "" {
+		t.Errorf("a finished refresh should leave the feed idle, got %v", feeds[0]["refresh"])
+	}
 }
 
 func TestRefreshOneFeedReportsProblems(t *testing.T) {

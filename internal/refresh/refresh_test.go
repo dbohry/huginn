@@ -156,3 +156,41 @@ func TestRefreshDueOnlyFetchesDueFeeds(t *testing.T) {
 		t.Fatalf("a second pass found %d due feeds, want 0", n)
 	}
 }
+
+func TestRefreshFeedsReportsQueuedAndFetching(t *testing.T) {
+	svc, st, _, _ := setup(t)
+	body := rssFixture(t)
+	arrived := make(chan string)
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		arrived <- r.URL.Path
+		<-release
+		w.Write(body)
+	}))
+	defer srv.Close()
+
+	ctx := context.Background()
+	one, _ := st.CreateFeed(ctx, 1, srv.URL+"/one")
+	two, _ := st.CreateFeed(ctx, 1, srv.URL+"/two")
+	if s := svc.Status(one); s != StatusIdle {
+		t.Fatalf("before a refresh: %q", s)
+	}
+
+	done := make(chan struct{})
+	go func() { svc.RefreshFeeds(ctx, []int64{one, two}); close(done) }()
+
+	<-arrived
+	if a, b := svc.Status(one), svc.Status(two); a != StatusFetching || b != StatusQueued {
+		t.Fatalf("while fetching the first: %q, %q", a, b)
+	}
+	release <- struct{}{}
+	<-arrived
+	if a, b := svc.Status(one), svc.Status(two); a != StatusIdle || b != StatusFetching {
+		t.Fatalf("while fetching the second: %q, %q", a, b)
+	}
+	release <- struct{}{}
+	<-done
+	if a, b := svc.Status(one), svc.Status(two); a != StatusIdle || b != StatusIdle {
+		t.Fatalf("after the refresh: %q, %q", a, b)
+	}
+}

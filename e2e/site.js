@@ -101,6 +101,8 @@ function start(port = 0) {
       case '/flaky.xml': // works once, then fails
         if (++flakyHits > 1) { res.writeHead(500); return res.end('down'); }
         return send('application/rss+xml', rss('Flaky Feed', base + '/flaky/', [{ id: 'f1', title: 'Only article', link: 'https://example.com/f1', date: 'Mon, 02 Nov 2026 05:00:00 +0000', summary: 'It worked once.', body: '<p>It worked once.</p>' }]));
+      case '/slow.xml': // answers after a pause, so a refresh can be watched on its way
+        return setTimeout(() => send('application/rss+xml', rss('Slow Feed', base + '/slow/', [{ id: 's1', title: 'Worth the wait', link: 'https://example.com/s1', date: 'Mon, 02 Nov 2026 05:00:00 +0000', summary: 'Slowly.', body: '<p>Slowly.</p>' }])), 2500);
       case '/many.xml': return send('application/rss+xml', rss('Long Feed', base + '/many/', many));
       case '/summaryonly.xml': {
         const items = stories.map((x) => ({ id: x.id, title: x.title, link: `${base}/story/${x.n}`, date: x.date, summary: x.summary, body: '' }));

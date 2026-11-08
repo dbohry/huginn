@@ -29,6 +29,9 @@ type feedJSON struct {
 	Error         string `json:"error"`         // last fetch error, or empty
 	FullText      bool   `json:"fullText"`
 	Category      string `json:"category"`
+	// Refresh is "fetching" while the feed is being fetched, "queued" while it
+	// waits its turn in a refresh of every feed, and "" otherwise.
+	Refresh string `json:"refresh"`
 }
 
 func toFeedJSON(f store.FeedSummary) feedJSON {
@@ -60,6 +63,7 @@ func (s *server) listFeeds(w http.ResponseWriter, r *http.Request, user store.Us
 	out := make([]feedJSON, len(feeds))
 	for i, f := range feeds {
 		out[i] = toFeedJSON(f)
+		out[i].Refresh = s.refresh.Status(f.ID)
 	}
 	writeJSON(w, http.StatusOK, map[string][]feedJSON{"feeds": out})
 }
@@ -195,7 +199,8 @@ func (s *server) refreshFeed(w http.ResponseWriter, r *http.Request, user store.
 }
 
 // refreshAll starts fetching all of the user's feeds in the background and
-// returns at once. The interface reloads the feed list to see the result.
+// returns at once. The interface reloads the feed list to follow its progress:
+// each feed says whether it is queued or being fetched.
 func (s *server) refreshAll(w http.ResponseWriter, r *http.Request, user store.User, _ store.Session) {
 	if !s.allowRefresh(w, user.ID) {
 		return
@@ -205,14 +210,7 @@ func (s *server) refreshAll(w http.ResponseWriter, r *http.Request, user store.U
 		serverError(w, err)
 		return
 	}
-	s.background(func(ctx context.Context) {
-		for _, id := range ids {
-			if ctx.Err() != nil {
-				return
-			}
-			s.refresh.RefreshFeed(ctx, id) // failures are recorded on the feed
-		}
-	})
+	s.background(func(ctx context.Context) { s.refresh.RefreshFeeds(ctx, ids) })
 	writeJSON(w, http.StatusAccepted, map[string]int{"feeds": len(ids)})
 }
 

@@ -5,6 +5,11 @@
   import { appearance } from '../lib/appearance.svelte';
   import { session } from '../lib/session.svelte';
   import { ui } from '../lib/ui.svelte';
+  import { updated } from '../lib/time';
+  import type { Feed } from '../lib/api';
+
+  // What a refresh is doing with a feed right now, if anything.
+  const busy = (f: Feed) => (f.refresh === 'fetching' || reader.refreshingFeedId === f.id ? 'fetching' : f.refresh);
 
   // Folded to a strip on a wide screen; a phone always shows the full menu.
   const collapsed = $derived(appearance.sidebarCollapsed && !ui.narrow);
@@ -82,10 +87,17 @@
             class="row"
             class:active={reader.feedId === feed.id}
             aria-current={reader.feedId === feed.id ? 'true' : undefined}
-            title={feed.title}
+            title={`${feed.title}\n${updated(feed.lastFetchedAt, ui.now)}`}
             onclick={() => reader.chooseFeed(feed.id)}
           >
             <span class="name">{feed.title}</span>
+            {#if busy(feed) === 'fetching'}
+              <svg class="state spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.56" /></svg>
+              <span class="sr-only">Refreshing.</span>
+            {:else if busy(feed) === 'queued'}
+              <svg class="state queued" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="2 4.3" aria-hidden="true"><circle cx="12" cy="12" r="9" /></svg>
+              <span class="sr-only">Waiting to be refreshed.</span>
+            {/if}
             {#if feed.error}<span class="warn" title="The last fetch failed: {feed.error}"><span class="sr-only">Could not be fetched. </span>!</span>{/if}
             {#if feed.unread > 0}<span class="count">{feed.unread}</span>{/if}
           </button>
@@ -245,6 +257,27 @@
   .row.active .count {
     background: var(--accent);
     color: var(--on-accent);
+  }
+  .state {
+    flex: none;
+    color: var(--accent);
+  }
+  .state.queued {
+    color: var(--muted);
+  }
+  /* Eases in and out of every turn, like the refresh button. */
+  .spin {
+    animation: spin 0.95s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spin {
+      animation-duration: 3s;
+    }
   }
   .warn {
     width: 18px;

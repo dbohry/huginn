@@ -17,6 +17,8 @@ export type Feed = {
   error: string;
   fullText: boolean;
   category: string;
+  /** "fetching" while the server fetches the feed, "queued" while it waits its turn in a refresh of every feed. */
+  refresh: '' | 'queued' | 'fetching';
 };
 
 export type StarterFeed = { id: number; title: string; url: string; followed: boolean };

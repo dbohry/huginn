@@ -36,6 +36,8 @@ class Reader {
   loadingFull = $state(false);
   refreshing = $state(false);
   refreshingFeedId = $state<number | null>(null);
+  /** How many feeds the refresh of every feed set out to fetch, for "3 of 12". */
+  refreshTotal = $state(0);
   /** Bumped each time refreshing every feed succeeds, so the refresh button can show it finished. */
   refreshedAt = $state(0);
   /** Why the list could not be loaded, or "". Offered with a Retry button. */
@@ -44,6 +46,12 @@ class Reader {
   announcement = $state('');
 
   totalUnread = $derived(this.feeds.reduce((n, f) => n + f.unread, 0));
+  /** When any feed was last fetched, in Unix seconds, or null if none has been. */
+  lastFetchedAt = $derived(this.feeds.reduce<number | null>((t, f) => (f.lastFetchedAt !== null && (t === null || f.lastFetchedAt > t) ? f.lastFetchedAt : t), null));
+  /** The feed the server is fetching for a refresh of every feed, if any. */
+  fetchingFeed = $derived(this.feeds.find((f) => f.refresh === 'fetching') ?? null);
+  /** Feeds still to be fetched in a refresh of every feed, the one being fetched included. */
+  refreshLeft = $derived(this.feeds.filter((f) => f.refresh !== '').length);
   currentFeed = $derived(this.feeds.find((f) => f.id === this.feedId) ?? null);
   title = $derived(this.currentFeed ? this.currentFeed.title : 'All items');
   selectedIndex = $derived(this.items.findIndex((i) => i.id === this.selectedId));
@@ -160,6 +168,7 @@ class Reader {
     this.addOpen = false;
     this.starterOpen = false;
     this.loadingList = this.loadingMore = this.loadingItem = this.loadingFull = this.refreshing = false;
+    this.refreshTotal = 0;
     this.refreshingFeedId = null;
     this.listError = '';
     this.toast = null;
@@ -441,19 +450,33 @@ class Reader {
     this.refreshing = true;
     this.announcement = 'Refreshing feeds';
     try {
-      await api.refreshAll();
-      // The server works in the background: look again a few times.
-      for (const wait of [2000, 4000, 8000]) {
-        await sleep(wait);
+      const { feeds } = await api.refreshAll();
+      this.refreshTotal = feeds;
+      // The server works in the background and says which feed it is on: follow it until it is done.
+      // New articles are loaded each time another feed has finished.
+      const deadline = Date.now() + 3 * 60 * 1000;
+      let left = feeds;
+      await this.loadFeeds();
+      while (generation === this.generation && this.refreshLeft > 0 && Date.now() < deadline) {
+        await sleep(1000);
         if (generation !== this.generation) return;
-        await Promise.all([this.loadFeeds(), this.loadItems(true, true)]);
+        await this.loadFeeds();
+        if (this.refreshLeft < left) {
+          left = this.refreshLeft;
+          await this.loadItems(true, true);
+        }
       }
+      if (generation !== this.generation) return;
+      await Promise.all([this.loadFeeds(), this.loadItems(true, true)]);
       this.refreshedAt = Date.now();
       this.notify('Feeds refreshed');
     } catch (e) {
       this.notify(message(e), 'error');
     } finally {
-      if (generation === this.generation) this.refreshing = false;
+      if (generation === this.generation) {
+        this.refreshing = false;
+        this.refreshTotal = 0;
+      }
     }
   }
 

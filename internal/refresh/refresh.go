@@ -34,6 +34,58 @@ type Service struct {
 
 	mu    sync.Mutex
 	hosts map[string]*sync.Mutex
+	// How many fetches of each feed are running, and how many are waiting
+	// their turn in a refresh of every feed, so the interface can show them.
+	fetching map[int64]int
+	queued   map[int64]int
+}
+
+// Feed refresh states, as Status reports them.
+const (
+	StatusIdle     = ""
+	StatusQueued   = "queued"
+	StatusFetching = "fetching"
+)
+
+// Status says whether a feed is being fetched right now, is waiting to be
+// fetched in a refresh of every feed, or neither.
+func (s *Service) Status(id int64) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch {
+	case s.fetching[id] > 0:
+		return StatusFetching
+	case s.queued[id] > 0:
+		return StatusQueued
+	}
+	return StatusIdle
+}
+
+// adjust adds d to a feed's count in m, forgetting the feed at zero.
+func (s *Service) adjust(m *map[int64]int, id int64, d int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if *m == nil {
+		*m = map[int64]int{}
+	}
+	if (*m)[id] += d; (*m)[id] <= 0 {
+		delete(*m, id)
+	}
+}
+
+// RefreshFeeds fetches the given feeds one after another. They all count as
+// queued from the start, so the interface can show the ones still to come.
+// Failures are recorded on each feed.
+func (s *Service) RefreshFeeds(ctx context.Context, ids []int64) {
+	for _, id := range ids {
+		s.adjust(&s.queued, id, 1)
+	}
+	for _, id := range ids {
+		if ctx.Err() == nil {
+			s.RefreshFeed(ctx, id)
+		}
+		s.adjust(&s.queued, id, -1)
+	}
 }
 
 // New returns a Service with the default interval.
@@ -57,6 +109,8 @@ func Backoff(interval time.Duration, errors int) time.Duration {
 // RefreshFeed fetches one feed now and stores the result. A fetch failure is
 // recorded on the feed and also returned.
 func (s *Service) RefreshFeed(ctx context.Context, id int64) error {
+	s.adjust(&s.fetching, id, 1)
+	defer s.adjust(&s.fetching, id, -1)
 	f, err := s.Store.GetFeed(ctx, id)
 	if err != nil {
 		return err
