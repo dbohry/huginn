@@ -473,6 +473,13 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 }
 
 func serverError(w http.ResponseWriter, err error) {
+	// The browser gave up on the request (the reader moved to another article, or
+	// closed the page). Nobody is waiting for an answer, and it is not a fault.
+	if errors.Is(err, context.Canceled) {
+		slog.Debug("request canceled by the client", "err", err)
+		w.WriteHeader(499)
+		return
+	}
 	// The detail goes to the log, not to the browser.
 	slog.Error("request failed", "err", err)
 	writeError(w, http.StatusInternalServerError, "Something went wrong.")
