@@ -14,7 +14,7 @@ Why Huginn is built the way it is.
 | Layer | Choice |
 |---|---|
 | Backend | Go, built as one static binary |
-| Database | SQLite (WAL mode, pure-Go driver), stored in a `/data` volume |
+| Database | SQLite (rollback journal, safe on NFS; pure-Go driver), stored in a `/data` volume |
 | Feeds | `gofeed` to parse, `bluemonday` to sanitize |
 | Frontend | Svelte 5 + Vite + TypeScript, a single-page app embedded in the binary |
 | Styling | Plain CSS with a few colour tokens, no component library |
