@@ -82,8 +82,8 @@ const expectsUnauthorized = (path: string) =>
 
 type Body = { json: unknown } | { xml: string };
 
-async function request<T>(method: string, path: string, body?: Body): Promise<T> {
-  let init: RequestInit = { method, credentials: 'same-origin' };
+async function request<T>(method: string, path: string, body?: Body, signal?: AbortSignal): Promise<T> {
+  let init: RequestInit = { method, credentials: 'same-origin', signal };
   if (body && 'json' in body) {
     init = { ...init, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body.json) };
   } else if (body) {
@@ -93,7 +93,8 @@ async function request<T>(method: string, path: string, body?: Body): Promise<T>
   let res: Response;
   try {
     res = await fetch(path, init);
-  } catch {
+  } catch (e) {
+    if (signal?.aborted) throw e;
     throw new ApiError(0, 'Cannot reach the server.');
   }
 
@@ -150,7 +151,8 @@ export const api = {
   },
   item: (id: number) => request<{ item: ItemDetail }>('GET', `/api/items/${id}`),
   /** Fetches the article's own page and keeps the readable text. */
-  loadFullText: (id: number) => request<{ item: ItemDetail }>('POST', `/api/items/${id}/full`),
+  loadFullText: (id: number, signal?: AbortSignal) =>
+    request<{ item: ItemDetail }>('POST', `/api/items/${id}/full`, undefined, signal),
   unloadFullText: (id: number) => request<{ item: ItemDetail }>('DELETE', `/api/items/${id}/full`),
   setRead: (id: number, read: boolean) => request<void>('PUT', `/api/items/${id}/read`, json({ read })),
   readAll: (feedId?: number | null) =>

@@ -18,7 +18,7 @@ Same as Bifrost, so the two projects can share habits and scaffolding.
 | Layer | Choice |
 |---|---|
 | Backend | Go, built as one static binary |
-| Database | SQLite (WAL mode, pure-Go `modernc.org/sqlite`), stored in a `/data` volume |
+| Database | SQLite (rollback journal, safe on NFS; pure-Go `modernc.org/sqlite`), stored in a `/data` volume |
 | Feeds | `gofeed` to parse RSS, Atom and JSON Feed |
 | HTML safety | `bluemonday` allow-list sanitizer for article content |
 | Frontend | Svelte 5 + Vite + TypeScript single-page app, embedded in the binary |

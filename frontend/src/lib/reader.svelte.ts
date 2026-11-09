@@ -34,6 +34,7 @@ class Reader {
   loadingMore = $state(false);
   loadingItem = $state(false);
   loadingFull = $state(false);
+  private fullAbort: AbortController | null = null;
   refreshing = $state(false);
   refreshingFeedId = $state<number | null>(null);
   /** How many feeds the refresh of every feed set out to fetch, for "3 of 12". */
@@ -167,6 +168,8 @@ class Reader {
     this.pane = 'list';
     this.addOpen = false;
     this.starterOpen = false;
+    this.fullAbort?.abort();
+    this.fullAbort = null;
     this.loadingList = this.loadingMore = this.loadingItem = this.loadingFull = this.refreshing = false;
     this.refreshTotal = 0;
     this.refreshingFeedId = null;
@@ -304,6 +307,9 @@ class Reader {
   async open(item: Item) {
     this.dropReadSelection(item.id);
     const token = ++this.itemToken;
+    // A full article still loading for the previous one must not hold this one up.
+    this.fullAbort?.abort();
+    this.loadingFull = false;
     this.selectedId = item.id;
     if (this.pane !== 'article') this.pushPane('article');
     this.loadingItem = true;
@@ -327,19 +333,25 @@ class Reader {
     if (!current || current.fullText || !current.url || this.loadingFull) return;
     const id = current.id;
     const token = this.itemToken;
+    const abort = new AbortController();
+    this.fullAbort = abort;
     this.loadingFull = true;
     this.announcement = 'Loading the full article';
     try {
-      const { item: detail } = await api.loadFullText(id);
+      const { item: detail } = await api.loadFullText(id, abort.signal);
       // Only if the same article is still open, and keep a read or unread change made meanwhile.
       if (token === this.itemToken && this.selected?.id === id) {
         this.selected = { ...detail, unread: this.selected.unread };
         this.announcement = 'The full article is loaded';
       }
     } catch (e) {
-      if (this.selected?.id === id) this.notify(message(e), 'error');
+      if (!abort.signal.aborted && this.selected?.id === id) this.notify(message(e), 'error');
     } finally {
-      this.loadingFull = false;
+      // Only the load that is still current may clear the flag.
+      if (this.fullAbort === abort) {
+        this.fullAbort = null;
+        this.loadingFull = false;
+      }
     }
   }
 
