@@ -160,6 +160,7 @@ class Reader {
     clearTimeout(this.toastTimer);
     this.feeds = [];
     this.items = [];
+    this.left = [];
     this.next = '';
     this.feedId = null;
     this.unreadOnly = appearance.unreadOnly;
@@ -286,12 +287,14 @@ class Reader {
 
   async chooseFeed(id: number | null) {
     this.feedId = id;
+    this.left = [];
     this.goList();
     await this.loadItems();
   }
 
   async setUnreadOnly(value: boolean) {
     this.unreadOnly = value;
+    this.left = [];
     appearance.setUnreadOnly(value);
     await this.loadItems();
   }
@@ -300,12 +303,20 @@ class Reader {
   private dropReadSelection(keepId: number | null = null) {
     if (!this.unreadOnly || this.selectedId === null || this.selectedId === keepId) return;
     const id = this.selectedId;
-    const item = this.items.find((i) => i.id === id);
-    if (item && !item.unread) this.items = this.items.filter((i) => i.id !== id);
+    const index = this.items.findIndex((i) => i.id === id);
+    const item = this.items[index];
+    if (item && !item.unread) {
+      // Remembered, so arrow up can come back to it.
+      this.left.push({ item: { ...item }, index });
+      this.items = this.items.filter((i) => i.id !== id);
+    }
   }
 
-  async open(item: Item) {
-    this.dropReadSelection(item.id);
+  /** Articles that "Unread only" dropped after being read, most recent last. */
+  private left: { item: Item; index: number }[] = [];
+
+  async open(item: Item, keepCurrent = false) {
+    if (!keepCurrent) this.dropReadSelection(item.id);
     const token = ++this.itemToken;
     // A full article still loading for the previous one must not hold this one up.
     this.fullAbort?.abort();
@@ -392,6 +403,16 @@ class Reader {
   async step(delta: 1 | -1) {
     if (this.pane === 'feeds') return;
     let from = this.selectedIndex;
+    // In "Unread only" the article just before this one may have left the list: bring it back.
+    const back = this.left.at(-1);
+    if (delta < 0 && this.unreadOnly && from !== -1 && back && back.index === from) {
+      this.left.pop();
+      if (!this.items.some((i) => i.id === back.item.id)) {
+        this.items = [...this.items.slice(0, from), back.item, ...this.items.slice(from)];
+        await this.open(back.item, true);
+        return;
+      }
+    }
     if (from === -1) from = delta > 0 ? -1 : this.items.length;
     let to = from + delta;
     if (to >= this.items.length && this.next) {
