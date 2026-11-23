@@ -220,6 +220,12 @@ async function addFeed(page, address) {
       await page.getByRole('group', { name: 'Show' }).getByRole('button', { name: /^Unread/ }).click();
       await page.waitForFunction(() => document.querySelectorAll('.item').length > 0);
       await page.evaluate(() => document.querySelector('.item').focus());
+      // Arrow up returns to an article that was read and has left the list.
+      await page.keyboard.press('ArrowDown');
+      await page.getByRole('heading', { name: 'Notes on keeping a notebook', level: 2 }).waitFor();
+      // "Walking the long way..." was open before and left the list when this one opened.
+      await page.keyboard.press('ArrowUp');
+      await page.waitForFunction((t) => document.querySelector('section.pane[aria-label="Article"] h2')?.textContent === t, 'Walking the long way to the station');
       // Down steps through the unread articles; past the last one it marks everything read.
       const caughtUp = page.getByRole('heading', { name: "You're all caught up" });
       for (let i = 0; i < 20 && !(await caughtUp.isVisible()); i++) {
