@@ -490,7 +490,7 @@ async function addFeed(page, address) {
       await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Hostile Feed/ }).click();
       await page.getByRole('button', { name: 'Unfollow' }).click();
       await page.getByRole('heading', { name: 'All items', level: 1 }).waitFor();
-      assert.strictEqual(await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Hostile Feed/ }).count(), 0);
+      await page.getByRole('navigation', { name: 'Feeds' }).getByRole('button', { name: /^Hostile Feed/ }).waitFor({ state: 'detached' });
     });
 
     await step('importing an OPML file adds its feeds once', async () => {
