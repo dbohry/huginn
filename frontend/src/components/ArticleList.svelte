@@ -42,7 +42,8 @@
   // A row that leaves the Unread list fades while the rows below glide up. A whole new list
   // (a filter change, a refresh) replaces rows too, and that must not animate row by row.
   function leave(node: HTMLElement) {
-    if (reader.loadingList || reduceMotion()) return { duration: 0 };
+    // The last row has no rows below it to glide up, and its collapse would hold back the "all caught up" message.
+    if (reader.loadingList || reader.items.length === 0 || reduceMotion()) return { duration: 0 };
     const height = node.offsetHeight;
     return {
       duration: 300,
