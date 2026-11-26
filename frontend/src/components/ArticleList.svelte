@@ -128,6 +128,16 @@
       <h1 tabindex="-1">{reader.title}</h1>
       {#if status}<p class="status" class:busy={reader.refreshing}>{status}</p>{/if}
     </div>
+    {#if !firstRun}
+      <button
+        class="icon markall"
+        aria-label={feed ? `Mark all read in ${feed.title}` : 'Mark all read'}
+        title="Mark all read"
+        onclick={() => reader.markAllRead()}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12l5 5L18 6" /><path d="M12 17l1 1L22 7" /></svg>
+      </button>
+    {/if}
     <button
       class="icon refresh"
       class:busy={reader.refreshing}
@@ -166,10 +176,6 @@
         </button>
         <button type="button" aria-pressed={!reader.unreadOnly} onclick={() => choose(false)}>All</button>
       </div>
-      <button class="small markall" aria-label={feed ? `Mark all read in ${feed.title}` : undefined} onclick={() => reader.markAllRead()}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12l5 5L18 6" /><path d="M12 17l1 1L22 7" /></svg>
-        Mark all read
-      </button>
     </div>
   {/if}
 
@@ -470,17 +476,14 @@
     }
   }
   .tools {
-    flex-wrap: wrap;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 8px 6px 16px;
+    padding: 6px 16px;
     border-bottom: 1px solid var(--border);
   }
   /* Two-way switch. The thumb slides between the halves. */
   .seg {
     position: relative;
+    flex: 1;
     display: grid;
     grid-template-columns: 1fr 1fr;
     padding: 3px;
@@ -529,13 +532,8 @@
     font-variant-numeric: tabular-nums;
     color: var(--accent);
   }
-  .markall {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border-color: transparent;
+  .icon.markall {
     color: var(--accent);
-    font-weight: 500;
   }
   .swap {
     animation: swap 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
